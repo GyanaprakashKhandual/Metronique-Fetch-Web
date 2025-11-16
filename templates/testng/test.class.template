@@ -1,0 +1,178 @@
+package com.{company}.{project}.tests.{category};
+
+import org.testng.annotations.*;
+import io.restassured.response.Response;
+import io.restassured.specification.RequestSpecification;
+import static io.restassured.RestAssured.*;
+import static org.testng.Assert.*;
+import com.{company}.{project}.base.BaseTest;
+import com.{company}.{project}.utils.ApiClient;
+import com.{company}.{project}.helpers.AuthHelper;
+
+public class {testClassName}Test extends BaseTest {
+    
+    private String baseUrl;
+    private Response response;
+    private RequestSpecification request;
+    private String authToken;
+    
+    @BeforeClass
+    public void setupClass() {
+        console.log("=== Setting up test class: {testClassName}Test ===");
+        baseUrl = getProperty("base.url");
+        baseURI = baseUrl;
+        console.log("Base URL configured: " + baseUrl);
+        
+        authToken = AuthHelper.getAuthToken();
+        console.log("Authentication token obtained");
+        console.log("Test class setup completed");
+    }
+    
+    @BeforeMethod
+    public void setupMethod() {
+        console.log("--- Starting new test method ---");
+        request = given()
+            .header("Content-Type", "application/json")
+            .header("Authorization", "Bearer " + authToken);
+        console.log("Request specification prepared");
+    }
+    
+    @Test(priority = 1, description = "{testDescription}")
+    public void test{testMethodName}Success() {
+        console.log("Test: test{testMethodName}Success - Started");
+        console.log("Sending GET request to: {endpoint}");
+        
+        response = request
+            .when()
+            .get("{endpoint}");
+        
+        console.log("Response received - Status: " + response.getStatusCode());
+        console.log("Response time: " + response.getTime() + "ms");
+        
+        assertEquals(response.getStatusCode(), 200, "Status code should be 200");
+        console.log("Status code validation passed");
+        
+        assertNotNull(response.getBody(), "Response body should not be null");
+        console.log("Response body validation passed");
+        
+        console.log("Test: test{testMethodName}Success - Passed");
+    }
+    
+    @Test(priority = 2, description = "Verify {testMethodName} with invalid data")
+    public void test{testMethodName}WithInvalidData() {
+        console.log("Test: test{testMethodName}WithInvalidData - Started");
+        console.log("Testing error handling with invalid data");
+        
+        String invalidData = "{}";
+        console.log("Request body: " + invalidData);
+        
+        response = request
+            .body(invalidData)
+            .when()
+            .post("{endpoint}");
+        
+        console.log("Response received - Status: " + response.getStatusCode());
+        
+        assertTrue(response.getStatusCode() >= 400, "Should return error status code");
+        console.log("Error handling validation passed");
+        
+        console.log("Test: test{testMethodName}WithInvalidData - Passed");
+    }
+    
+    @Test(priority = 3, dependsOnMethods = "test{testMethodName}Success", 
+          description = "Validate {testMethodName} response structure")
+    public void test{testMethodName}ResponseValidation() {
+        console.log("Test: test{testMethodName}ResponseValidation - Started");
+        console.log("Validating response structure and data");
+        
+        response = request
+            .when()
+            .get("{endpoint}");
+        
+        console.log("Response received - Status: " + response.getStatusCode());
+        
+        String responseBody = response.getBody().asString();
+        console.log("Response body length: " + responseBody.length());
+        
+        assertNotNull(responseBody, "Response body should not be null");
+        assertTrue(responseBody.contains("{expectedField}"), 
+                  "Response should contain expected field");
+        
+        console.log("Response structure validation passed");
+        console.log("Test: test{testMethodName}ResponseValidation - Passed");
+    }
+    
+    @Test(priority = 4, description = "Test {testMethodName} performance")
+    public void test{testMethodName}Performance() {
+        console.log("Test: test{testMethodName}Performance - Started");
+        console.log("Testing API performance");
+        
+        long startTime = System.currentTimeMillis();
+        
+        response = request
+            .when()
+            .get("{endpoint}");
+        
+        long endTime = System.currentTimeMillis();
+        long responseTime = endTime - startTime;
+        
+        console.log("Response time: " + responseTime + "ms");
+        console.log("Response status: " + response.getStatusCode());
+        
+        assertTrue(responseTime < 3000, "Response time should be less than 3000ms");
+        console.log("Performance validation passed");
+        
+        console.log("Test: test{testMethodName}Performance - Passed");
+    }
+    
+    @Test(priority = 5, dataProvider = "testData", 
+          description = "Test {testMethodName} with multiple datasets")
+    public void test{testMethodName}WithDataProvider(String input, int expectedStatus) {
+        console.log("Test: test{testMethodName}WithDataProvider - Started");
+        console.log("Input data: " + input);
+        console.log("Expected status: " + expectedStatus);
+        
+        response = request
+            .body(input)
+            .when()
+            .post("{endpoint}");
+        
+        console.log("Response status: " + response.getStatusCode());
+        
+        assertEquals(response.getStatusCode(), expectedStatus, 
+                    "Status code should match expected");
+        
+        console.log("Data provider test passed for input: " + input);
+        console.log("Test: test{testMethodName}WithDataProvider - Passed");
+    }
+    
+    @DataProvider(name = "testData")
+    public Object[][] getTestData() {
+        console.log("Providing test data for data-driven testing");
+        return new Object[][] {
+            {"{\"key\":\"value1\"}", 200},
+            {"{\"key\":\"value2\"}", 200},
+            {"{\"key\":\"invalid\"}", 400}
+        };
+    }
+    
+    @AfterMethod
+    public void teardownMethod(ITestResult result) {
+        console.log("--- Test method completed ---");
+        console.log("Test name: " + result.getName());
+        console.log("Test status: " + (result.isSuccess() ? "PASSED" : "FAILED"));
+        
+        if (!result.isSuccess()) {
+            console.log("Test failed with error: " + result.getThrowable().getMessage());
+        }
+        
+        console.log("Cleaning up test data");
+    }
+    
+    @AfterClass
+    public void teardownClass() {
+        console.log("=== Tearing down test class: {testClassName}Test ===");
+        console.log("Releasing resources");
+        console.log("Test class teardown completed");
+    }
+}

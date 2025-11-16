@@ -1,0 +1,63 @@
+Feature: {featureName}
+  As a {role}
+  I want to {action}
+  So that {benefit}
+
+  Background:
+    Given the API base URL is "{baseUrl}"
+    And authentication is configured with valid credentials
+
+  @smoke @{tag}
+  Scenario: {scenarioName} - Verify successful response
+    Given I have valid authentication token
+    And I prepare request headers
+      | Content-Type | application/json |
+      | Accept       | application/json |
+    When I send a {method} request to "{endpoint}"
+    Then the response status code should be {statusCode}
+    And the response time should be less than {timeout} milliseconds
+    And the response should match the expected schema
+    And the response body should contain the following fields
+      | {field1} |
+      | {field2} |
+      | {field3} |
+
+  @regression @{tag}
+  Scenario: {scenarioName} - Verify error handling
+    Given I have invalid authentication token
+    When I send a {method} request to "{endpoint}"
+    Then the response status code should be 401
+    And the response should contain error message
+
+  @api @{tag}
+  Scenario Outline: {scenarioName} - Test with multiple data sets
+    Given I prepare request with the following data
+      | {key1} | <{value1}> |
+      | {key2} | <{value2}> |
+    When I send a <method> request to "<endpoint>"
+    Then the response status code should be <statusCode>
+    And the response should contain "<expectedField>"
+    And the response body field "<field>" should equal "<expectedValue>"
+    
+    Examples:
+      | {value1} | {value2} | method | endpoint | statusCode | expectedField | field | expectedValue |
+      | data1    | value1   | POST   | /api/v1  | 201        | success       | id    | 123           |
+      | data2    | value2   | POST   | /api/v1  | 201        | success       | id    | 124           |
+      | data3    | value3   | POST   | /api/v1  | 400        | error         | msg   | Invalid       |
+
+  @database @{tag}
+  Scenario: {scenarioName} - Verify database integration
+    Given I connect to the test database
+    And I prepare test data in the database
+    When I send a {method} request to "{endpoint}"
+    Then the response status code should be {statusCode}
+    And the database should contain the expected record
+    And the database record should match the response data
+
+  @performance @{tag}
+  Scenario: {scenarioName} - Performance validation
+    Given I prepare request for performance test
+    When I send {requestCount} concurrent requests to "{endpoint}"
+    Then all responses should have status code {statusCode}
+    And the average response time should be less than {avgTimeout} milliseconds
+    And the maximum response time should be less than {maxTimeout} milliseconds

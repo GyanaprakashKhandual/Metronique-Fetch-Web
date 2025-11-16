@@ -1,0 +1,165 @@
+{
+    "name": "REST Assured Test Project",
+    "framework": "rest-assured",
+    "buildTool": "maven",
+    "language": "java",
+    "javaVersion": "11",
+    "structure": {
+        "src": {
+            "test": {
+                "java": {
+                    "com": {
+                        "{company}": {
+                            "{project}": {
+                                "tests": {
+                                    "api": {
+                                        "description": "API endpoint tests",
+                                        "files": []
+                                    },
+                                    "integration": {
+                                        "description": "Integration tests",
+                                        "files": []
+                                    },
+                                    "smoke": {
+                                        "description": "Smoke tests",
+                                        "files": []
+                                    },
+                                    "regression": {
+                                        "description": "Regression tests",
+                                        "files": []
+                                    }
+                                },
+                                "utils": {
+                                    "description": "Utility classes",
+                                    "files": [
+                                        "RestAssuredUtil.java",
+                                        "RequestBuilder.java",
+                                        "ResponseValidator.java",
+                                        "ApiHelper.java",
+                                        "JsonUtil.java"
+                                    ]
+                                },
+                                "config": {
+                                    "description": "Configuration classes",
+                                    "files": [
+                                        "TestConfig.java",
+                                        "EnvironmentConfig.java",
+                                        "DatabaseConfig.java",
+                                        "ApiConfig.java"
+                                    ]
+                                },
+                                "helpers": {
+                                    "description": "Helper classes",
+                                    "files": [
+                                        "AuthHelper.java",
+                                        "DataHelper.java",
+                                        "AssertionHelper.java",
+                                        "RequestHelper.java"
+                                    ]
+                                },
+                                "base": {
+                                    "description": "Base test classes",
+                                    "files": [
+                                        "BaseTest.java",
+                                        "BaseApiTest.java"
+                                    ]
+                                },
+                                "listeners": {
+                                    "description": "TestNG listeners",
+                                    "files": [
+                                        "TestListener.java",
+                                        "RetryAnalyzer.java",
+                                        "ExtentReportListener.java"
+                                    ]
+                                },
+                                "models": {
+                                    "request": {
+                                        "description": "Request models",
+                                        "files": []
+                                    },
+                                    "response": {
+                                        "description": "Response models",
+                                        "files": []
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "resources": {
+                    "features": {
+                        "description": "Cucumber feature files",
+                        "files": []
+                    },
+                    "testdata": {
+                        "description": "Test data files",
+                        "files": [
+                            "users.json",
+                            "endpoints.json",
+                            "test-data.json",
+                            "auth-tokens.json"
+                        ]
+                    },
+                    "config": {
+                        "description": "Configuration files",
+                        "files": [
+                            "application.properties",
+                            "test.properties",
+                            "log4j2.xml",
+                            "allure.properties"
+                        ]
+                    },
+                    "schemas": {
+                        "request-schemas": {
+                            "description": "Request JSON schemas",
+                            "files": []
+                        },
+                        "response-schemas": {
+                            "description": "Response JSON schemas",
+                            "files": []
+                        }
+                    }
+                }
+            }
+        },
+        "pom.xml": {
+            "type": "root",
+            "required": true
+        },
+        "testng.xml": {
+            "type": "root",
+            "required": true
+        },
+        "cucumber.properties": {
+            "type": "root",
+            "required": false
+        },
+        "README.md": {
+            "type": "root",
+            "required": true
+        },
+        ".gitignore": {
+            "type": "root",
+            "required": true
+        }
+    },
+    "dependencies": {
+        "rest-assured": "5.3.2",
+        "testng": "7.8.0",
+        "cucumber-java": "7.14.0",
+        "cucumber-testng": "7.14.0",
+        "jackson-databind": "2.15.2",
+        "lombok": "1.18.30",
+        "slf4j-api": "2.0.9",
+        "log4j-core": "2.20.0",
+        "allure-testng": "2.24.0",
+        "mongodb-driver-sync": "4.11.1",
+        "mysql-connector-java": "8.0.33",
+        "postgresql": "42.6.0"
+    },
+    "plugins": {
+        "maven-compiler-plugin": "3.11.0",
+        "maven-surefire-plugin": "3.1.2",
+        "allure-maven": "2.12.0"
+    }
+}

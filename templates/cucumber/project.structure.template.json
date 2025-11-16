@@ -1,0 +1,138 @@
+{
+    "name": "Cucumber BDD Test Project",
+    "framework": "cucumber",
+    "buildTool": "maven",
+    "language": "java",
+    "javaVersion": "11",
+    "structure": {
+        "src": {
+            "test": {
+                "java": {
+                    "com": {
+                        "{company}": {
+                            "{project}": {
+                                "stepdefinitions": {
+                                    "description": "Step definition classes",
+                                    "files": []
+                                },
+                                "hooks": {
+                                    "description": "Test hooks for setup and teardown",
+                                    "files": [
+                                        "Hooks.java",
+                                        "TestContext.java"
+                                    ]
+                                },
+                                "runners": {
+                                    "description": "Test runner classes",
+                                    "files": [
+                                        "TestRunner.java",
+                                        "SmokeTestRunner.java",
+                                        "RegressionTestRunner.java",
+                                        "ApiTestRunner.java"
+                                    ]
+                                },
+                                "utils": {
+                                    "description": "Utility classes",
+                                    "files": [
+                                        "ApiUtils.java",
+                                        "DatabaseUtils.java",
+                                        "TestDataUtils.java",
+                                        "RestAssuredUtils.java"
+                                    ]
+                                },
+                                "config": {
+                                    "description": "Configuration classes",
+                                    "files": [
+                                        "ConfigReader.java",
+                                        "TestContext.java",
+                                        "EnvironmentConfig.java"
+                                    ]
+                                },
+                                "models": {
+                                    "request": {
+                                        "description": "Request models",
+                                        "files": []
+                                    },
+                                    "response": {
+                                        "description": "Response models",
+                                        "files": []
+                                    }
+                                },
+                                "helpers": {
+                                    "description": "Helper classes",
+                                    "files": [
+                                        "AuthHelper.java",
+                                        "JsonHelper.java",
+                                        "AssertionHelper.java"
+                                    ]
+                                }
+                            }
+                        }
+                    }
+                },
+                "resources": {
+                    "features": {
+                        "api": {
+                            "description": "API feature files",
+                            "files": []
+                        },
+                        "smoke": {
+                            "description": "Smoke test features",
+                            "files": []
+                        },
+                        "regression": {
+                            "description": "Regression test features",
+                            "files": []
+                        }
+                    },
+                    "testdata": {
+                        "description": "Test data files",
+                        "files": [
+                            "users.json",
+                            "endpoints.json",
+                            "test-scenarios.json"
+                        ]
+                    },
+                    "config": {
+                        "description": "Configuration files",
+                        "files": [
+                            "cucumber.properties",
+                            "test.properties",
+                            "log4j2.xml"
+                        ]
+                    }
+                }
+            }
+        },
+        "pom.xml": {
+            "type": "root",
+            "required": true
+        },
+        "cucumber.properties": {
+            "type": "root",
+            "required": true
+        },
+        "README.md": {
+            "type": "root",
+            "required": true
+        },
+        ".gitignore": {
+            "type": "root",
+            "required": true
+        }
+    },
+    "dependencies": {
+        "cucumber-java": "7.14.0",
+        "cucumber-testng": "7.14.0",
+        "cucumber-picocontainer": "7.14.0",
+        "rest-assured": "5.3.2",
+        "testng": "7.8.0",
+        "jackson-databind": "2.15.2",
+        "lombok": "1.18.30",
+        "allure-cucumber7-jvm": "2.24.0"
+    },
+    "plugins": {
+        "maven-compiler-plugin": "3.11.0",
+        "maven-surefire-plugin": "3.1.2"
+    }
+}

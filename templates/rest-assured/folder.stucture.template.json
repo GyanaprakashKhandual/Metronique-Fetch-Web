@@ -1,0 +1,198 @@
+{
+    "root": [
+        "pom.xml",
+        "testng.xml",
+        "cucumber.properties",
+        "README.md",
+        ".gitignore"
+    ],
+    "src/test/java/com/{company}/{project}": {
+        "tests": {
+            "api": {
+                "description": "Generated API test classes",
+                "filePattern": "*ApiTest.java",
+                "example": "UserApiTest.java"
+            },
+            "integration": {
+                "description": "Integration test classes",
+                "filePattern": "*IntegrationTest.java",
+                "example": "DatabaseIntegrationTest.java"
+            },
+            "smoke": {
+                "description": "Smoke test classes",
+                "filePattern": "*SmokeTest.java",
+                "example": "HealthCheckSmokeTest.java"
+            },
+            "regression": {
+                "description": "Regression test classes",
+                "filePattern": "*RegressionTest.java",
+                "example": "FullFlowRegressionTest.java"
+            }
+        },
+        "utils": {
+            "description": "Utility classes for test support",
+            "files": [
+                {
+                    "name": "RestAssuredUtil.java",
+                    "description": "REST Assured configuration and utilities"
+                },
+                {
+                    "name": "RequestBuilder.java",
+                    "description": "Build HTTP requests"
+                },
+                {
+                    "name": "ResponseValidator.java",
+                    "description": "Validate HTTP responses"
+                },
+                {
+                    "name": "ApiHelper.java",
+                    "description": "Common API operations"
+                },
+                {
+                    "name": "JsonUtil.java",
+                    "description": "JSON parsing and manipulation"
+                }
+            ]
+        },
+        "config": {
+            "description": "Configuration classes",
+            "files": [
+                {
+                    "name": "TestConfig.java",
+                    "description": "Main test configuration"
+                },
+                {
+                    "name": "EnvironmentConfig.java",
+                    "description": "Environment-specific settings"
+                },
+                {
+                    "name": "DatabaseConfig.java",
+                    "description": "Database connection configuration"
+                },
+                {
+                    "name": "ApiConfig.java",
+                    "description": "API endpoint configuration"
+                }
+            ]
+        },
+        "helpers": {
+            "description": "Helper classes",
+            "files": [
+                {
+                    "name": "AuthHelper.java",
+                    "description": "Authentication and authorization helpers"
+                },
+                {
+                    "name": "DataHelper.java",
+                    "description": "Test data management"
+                },
+                {
+                    "name": "AssertionHelper.java",
+                    "description": "Custom assertions"
+                },
+                {
+                    "name": "RequestHelper.java",
+                    "description": "Request preparation helpers"
+                }
+            ]
+        },
+        "base": {
+            "description": "Base test classes",
+            "files": [
+                {
+                    "name": "BaseTest.java",
+                    "description": "Base class for all tests"
+                },
+                {
+                    "name": "BaseApiTest.java",
+                    "description": "Base class for API tests"
+                }
+            ]
+        },
+        "listeners": {
+            "description": "TestNG listeners",
+            "files": [
+                {
+                    "name": "TestListener.java",
+                    "description": "Custom test execution listener"
+                },
+                {
+                    "name": "RetryAnalyzer.java",
+                    "description": "Test retry logic"
+                },
+                {
+                    "name": "ExtentReportListener.java",
+                    "description": "Extent report generation"
+                }
+            ]
+        },
+        "models": {
+            "request": {
+                "description": "Request POJO models",
+                "filePattern": "*Request.java"
+            },
+            "response": {
+                "description": "Response POJO models",
+                "filePattern": "*Response.java"
+            }
+        }
+    },
+    "src/test/resources": {
+        "features": {
+            "description": "Cucumber feature files",
+            "filePattern": "*.feature"
+        },
+        "testdata": {
+            "description": "Test data files",
+            "files": [
+                {
+                    "name": "users.json",
+                    "description": "User test data"
+                },
+                {
+                    "name": "endpoints.json",
+                    "description": "API endpoint definitions"
+                },
+                {
+                    "name": "test-data.json",
+                    "description": "Generic test data"
+                },
+                {
+                    "name": "auth-tokens.json",
+                    "description": "Authentication tokens"
+                }
+            ]
+        },
+        "config": {
+            "description": "Configuration files",
+            "files": [
+                {
+                    "name": "application.properties",
+                    "description": "Application configuration"
+                },
+                {
+                    "name": "test.properties",
+                    "description": "Test environment properties"
+                },
+                {
+                    "name": "log4j2.xml",
+                    "description": "Logging configuration"
+                },
+                {
+                    "name": "allure.properties",
+                    "description": "Allure report configuration"
+                }
+            ]
+        },
+        "schemas": {
+            "request-schemas": {
+                "description": "JSON schemas for request validation",
+                "filePattern": "*-request-schema.json"
+            },
+            "response-schemas": {
+                "description": "JSON schemas for response validation",
+                "filePattern": "*-response-schema.json"
+            }
+        }
+    }
+}

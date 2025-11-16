@@ -1,0 +1,176 @@
+{
+    "root": [
+        "pom.xml",
+        "testng.xml",
+        "README.md",
+        ".gitignore"
+    ],
+    "src/test/java/com/{company}/{project}": {
+        "tests": {
+            "functional": {
+                "description": "Functional test classes",
+                "filePattern": "*FunctionalTest.java",
+                "example": "UserFunctionalTest.java"
+            },
+            "api": {
+                "description": "API test classes",
+                "filePattern": "*ApiTest.java",
+                "example": "UserApiTest.java"
+            },
+            "database": {
+                "description": "Database test classes",
+                "filePattern": "*DatabaseTest.java",
+                "example": "UserDatabaseTest.java"
+            },
+            "integration": {
+                "description": "Integration test classes",
+                "filePattern": "*IntegrationTest.java",
+                "example": "EndToEndIntegrationTest.java"
+            }
+        },
+        "base": {
+            "description": "Base test classes",
+            "files": [
+                {
+                    "name": "BaseTest.java",
+                    "description": "Base class for all tests with common setup"
+                },
+                {
+                    "name": "BaseApiTest.java",
+                    "description": "Base class specifically for API tests"
+                }
+            ]
+        },
+        "utils": {
+            "description": "Utility classes",
+            "files": [
+                {
+                    "name": "TestUtils.java",
+                    "description": "General test utilities"
+                },
+                {
+                    "name": "ApiClient.java",
+                    "description": "HTTP client for API calls"
+                },
+                {
+                    "name": "DatabaseClient.java",
+                    "description": "Database connection and query utilities"
+                },
+                {
+                    "name": "RestUtils.java",
+                    "description": "REST API utilities"
+                }
+            ]
+        },
+        "config": {
+            "description": "Configuration classes",
+            "files": [
+                {
+                    "name": "Configuration.java",
+                    "description": "Main configuration class"
+                },
+                {
+                    "name": "TestConfig.java",
+                    "description": "Test-specific configurations"
+                },
+                {
+                    "name": "EnvironmentConfig.java",
+                    "description": "Environment-specific settings"
+                }
+            ]
+        },
+        "listeners": {
+            "description": "TestNG listeners",
+            "files": [
+                {
+                    "name": "TestListener.java",
+                    "description": "Custom test execution listener"
+                },
+                {
+                    "name": "RetryListener.java",
+                    "description": "Test retry logic for failed tests"
+                },
+                {
+                    "name": "ReportListener.java",
+                    "description": "Custom reporting listener"
+                }
+            ]
+        },
+        "dataproviders": {
+            "description": "Data provider classes",
+            "files": [
+                {
+                    "name": "TestDataProvider.java",
+                    "description": "Data provider for parameterized tests"
+                },
+                {
+                    "name": "ApiDataProvider.java",
+                    "description": "API-specific data provider"
+                }
+            ]
+        },
+        "helpers": {
+            "description": "Helper classes",
+            "files": [
+                {
+                    "name": "AuthHelper.java",
+                    "description": "Authentication helper methods"
+                },
+                {
+                    "name": "AssertHelper.java",
+                    "description": "Custom assertion helpers"
+                },
+                {
+                    "name": "JsonHelper.java",
+                    "description": "JSON manipulation helpers"
+                }
+            ]
+        },
+        "models": {
+            "request": {
+                "description": "Request POJO models",
+                "filePattern": "*Request.java"
+            },
+            "response": {
+                "description": "Response POJO models",
+                "filePattern": "*Response.java"
+            }
+        }
+    },
+    "src/test/resources": {
+        "testdata": {
+            "description": "Test data files",
+            "files": [
+                {
+                    "name": "users.json",
+                    "description": "User test data"
+                },
+                {
+                    "name": "endpoints.json",
+                    "description": "API endpoint definitions"
+                },
+                {
+                    "name": "test-data.json",
+                    "description": "Generic test data"
+                }
+            ]
+        },
+        "config": {
+            "description": "Configuration files",
+            "files": [
+                {
+                    "name": "test.properties",
+                    "description": "Test environment properties"
+                },
+                {
+                    "name": "log4j2.xml",
+                    "description": "Logging configuration"
+                },
+                {
+                    "name": "allure.properties",
+                    "description": "Allure report configuration"
+                }
+            ]
+        }
+    }
+}

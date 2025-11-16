@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE suite SYSTEM "https://testng.org/testng-1.0.dtd">
+<suite name="{projectName} API Test Suite" parallel="methods" thread-count="5" verbose="1">
+    <parameter name="baseUrl" value="{baseUrl}"/>
+    <parameter name="environment" value="{environment}"/>
+    
+    <listeners>
+        <listener class-name="com.{company}.{project}.listeners.TestListener"/>
+    </listeners>
+
+    <test name="Smoke Tests" preserve-order="true">
+        <classes>
+            <class name="com.{company}.{project}.tests.smoke.*"/>
+        </classes>
+    </test>
+
+    <test name="API Tests" parallel="classes" thread-count="3">
+        <classes>
+            <class name="com.{company}.{project}.tests.api.*"/>
+        </classes>
+    </test>
+
+    <test name="Integration Tests">
+        <classes>
+            <class name="com.{company}.{project}.tests.integration.*"/>
+        </classes>
+    </test>
+
+    <test name="Regression Tests" parallel="methods" thread-count="5">
+        <classes>
+            <class name="com.{company}.{project}.tests.regression.*"/>
+        </classes>
+    </test>
+</suite>

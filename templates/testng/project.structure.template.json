@@ -1,0 +1,144 @@
+{
+    "name": "TestNG Test Project",
+    "framework": "testng",
+    "buildTool": "maven",
+    "language": "java",
+    "javaVersion": "11",
+    "structure": {
+        "src": {
+            "test": {
+                "java": {
+                    "com": {
+                        "{company}": {
+                            "{project}": {
+                                "tests": {
+                                    "functional": {
+                                        "description": "Functional test classes",
+                                        "files": []
+                                    },
+                                    "api": {
+                                        "description": "API test classes",
+                                        "files": []
+                                    },
+                                    "database": {
+                                        "description": "Database test classes",
+                                        "files": []
+                                    },
+                                    "integration": {
+                                        "description": "Integration test classes",
+                                        "files": []
+                                    }
+                                },
+                                "base": {
+                                    "description": "Base test classes",
+                                    "files": [
+                                        "BaseTest.java",
+                                        "BaseApiTest.java"
+                                    ]
+                                },
+                                "utils": {
+                                    "description": "Utility classes",
+                                    "files": [
+                                        "TestUtils.java",
+                                        "ApiClient.java",
+                                        "DatabaseClient.java",
+                                        "RestUtils.java"
+                                    ]
+                                },
+                                "config": {
+                                    "description": "Configuration classes",
+                                    "files": [
+                                        "Configuration.java",
+                                        "TestConfig.java",
+                                        "EnvironmentConfig.java"
+                                    ]
+                                },
+                                "listeners": {
+                                    "description": "TestNG listeners",
+                                    "files": [
+                                        "TestListener.java",
+                                        "RetryListener.java",
+                                        "ReportListener.java"
+                                    ]
+                                },
+                                "dataproviders": {
+                                    "description": "Data provider classes",
+                                    "files": [
+                                        "TestDataProvider.java",
+                                        "ApiDataProvider.java"
+                                    ]
+                                },
+                                "helpers": {
+                                    "description": "Helper classes",
+                                    "files": [
+                                        "AuthHelper.java",
+                                        "AssertHelper.java",
+                                        "JsonHelper.java"
+                                    ]
+                                },
+                                "models": {
+                                    "request": {
+                                        "description": "Request models",
+                                        "files": []
+                                    },
+                                    "response": {
+                                        "description": "Response models",
+                                        "files": []
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "resources": {
+                    "testdata": {
+                        "description": "Test data files",
+                        "files": [
+                            "users.json",
+                            "endpoints.json",
+                            "test-data.json"
+                        ]
+                    },
+                    "config": {
+                        "description": "Configuration files",
+                        "files": [
+                            "test.properties",
+                            "log4j2.xml",
+                            "allure.properties"
+                        ]
+                    }
+                }
+            }
+        },
+        "pom.xml": {
+            "type": "root",
+            "required": true
+        },
+        "testng.xml": {
+            "type": "root",
+            "required": true
+        },
+        "README.md": {
+            "type": "root",
+            "required": true
+        },
+        ".gitignore": {
+            "type": "root",
+            "required": true
+        }
+    },
+    "dependencies": {
+        "testng": "7.8.0",
+        "rest-assured": "5.3.2",
+        "jackson-databind": "2.15.2",
+        "lombok": "1.18.30",
+        "slf4j-api": "2.0.9",
+        "log4j-core": "2.20.0",
+        "allure-testng": "2.24.0"
+    },
+    "plugins": {
+        "maven-compiler-plugin": "3.11.0",
+        "maven-surefire-plugin": "3.1.2",
+        "allure-maven": "2.12.0"
+    }
+}

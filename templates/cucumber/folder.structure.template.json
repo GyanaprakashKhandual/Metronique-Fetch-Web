@@ -1,0 +1,167 @@
+{
+    "root": [
+        "pom.xml",
+        "cucumber.properties",
+        "README.md",
+        ".gitignore"
+    ],
+    "src/test/java/com/{company}/{project}": {
+        "stepdefinitions": {
+            "description": "Step definition classes for Cucumber scenarios",
+            "filePattern": "*StepDefinitions.java",
+            "files": []
+        },
+        "hooks": {
+            "description": "Test hooks for setup and teardown",
+            "files": [
+                {
+                    "name": "Hooks.java",
+                    "description": "Before and After hooks for scenarios"
+                },
+                {
+                    "name": "TestContext.java",
+                    "description": "Shared context across step definitions"
+                }
+            ]
+        },
+        "runners": {
+            "description": "Test runner classes",
+            "files": [
+                {
+                    "name": "TestRunner.java",
+                    "description": "Main test runner"
+                },
+                {
+                    "name": "SmokeTestRunner.java",
+                    "description": "Smoke test suite runner"
+                },
+                {
+                    "name": "RegressionTestRunner.java",
+                    "description": "Regression test suite runner"
+                },
+                {
+                    "name": "ApiTestRunner.java",
+                    "description": "API test suite runner"
+                }
+            ]
+        },
+        "utils": {
+            "description": "Utility classes",
+            "files": [
+                {
+                    "name": "ApiUtils.java",
+                    "description": "API testing utilities"
+                },
+                {
+                    "name": "DatabaseUtils.java",
+                    "description": "Database operations utilities"
+                },
+                {
+                    "name": "TestDataUtils.java",
+                    "description": "Test data management utilities"
+                },
+                {
+                    "name": "RestAssuredUtils.java",
+                    "description": "REST Assured configuration utilities"
+                }
+            ]
+        },
+        "config": {
+            "description": "Configuration classes",
+            "files": [
+                {
+                    "name": "ConfigReader.java",
+                    "description": "Read configuration from properties files"
+                },
+                {
+                    "name": "TestContext.java",
+                    "description": "Test execution context"
+                },
+                {
+                    "name": "EnvironmentConfig.java",
+                    "description": "Environment-specific configurations"
+                }
+            ]
+        },
+        "models": {
+            "request": {
+                "description": "Request POJO models",
+                "filePattern": "*Request.java"
+            },
+            "response": {
+                "description": "Response POJO models",
+                "filePattern": "*Response.java"
+            }
+        },
+        "helpers": {
+            "description": "Helper classes",
+            "files": [
+                {
+                    "name": "AuthHelper.java",
+                    "description": "Authentication helpers"
+                },
+                {
+                    "name": "JsonHelper.java",
+                    "description": "JSON manipulation helpers"
+                },
+                {
+                    "name": "AssertionHelper.java",
+                    "description": "Custom assertion helpers"
+                }
+            ]
+        }
+    },
+    "src/test/resources": {
+        "features": {
+            "api": {
+                "description": "API feature files",
+                "filePattern": "*.feature",
+                "example": "user-api.feature"
+            },
+            "smoke": {
+                "description": "Smoke test features",
+                "filePattern": "*.feature",
+                "example": "health-check.feature"
+            },
+            "regression": {
+                "description": "Regression test features",
+                "filePattern": "*.feature",
+                "example": "full-flow.feature"
+            }
+        },
+        "testdata": {
+            "description": "Test data files",
+            "files": [
+                {
+                    "name": "users.json",
+                    "description": "User test data"
+                },
+                {
+                    "name": "endpoints.json",
+                    "description": "API endpoint definitions"
+                },
+                {
+                    "name": "test-scenarios.json",
+                    "description": "Test scenario data"
+                }
+            ]
+        },
+        "config": {
+            "description": "Configuration files",
+            "files": [
+                {
+                    "name": "cucumber.properties",
+                    "description": "Cucumber configuration"
+                },
+                {
+                    "name": "test.properties",
+                    "description": "Test environment properties"
+                },
+                {
+                    "name": "log4j2.xml",
+                    "description": "Logging configuration"
+                }
+            ]
+        }
+    }
+}
