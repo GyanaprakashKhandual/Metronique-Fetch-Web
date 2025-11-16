@@ -1,3 +1,141 @@
-/uploads
-node_modules
-.env*
+# Dependencies
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+package-lock.json
+yarn.lock
+
+# Environment Variables
+.env
+.env.local
+.env.development
+.env.test
+.env.production
+.env.staging
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+error.log
+combined.log
+access.log
+
+# Runtime data
+pids/
+*.pid
+*.seed
+*.pid.lock
+
+# Testing
+coverage/
+.nyc_output/
+test-results/
+*.test.js.snap
+
+# Build outputs
+dist/
+build/
+out/
+.next/
+*.tsbuildinfo
+
+# IDE and Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+*.sublime-project
+*.sublime-workspace
+.project
+.classpath
+.settings/
+*.iml
+
+# OS files
+Thumbs.db
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon
+._*
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+*.bak
+*.cache
+
+# Uploads and generated files
+uploads/temp/*
+uploads/scripts/*
+!uploads/temp/.gitkeep
+!uploads/scripts/.gitkeep
+
+# Generated test projects and reports
+generated/test-projects/*
+generated/reports/*
+generated/exports/*
+!generated/test-projects/.gitkeep
+!generated/reports/.gitkeep
+!generated/exports/.gitkeep
+
+# Database files
+*.sqlite
+*.sqlite3
+*.db
+
+# Sensitive credential files
+credentials/
+secrets/
+*.pem
+*.key
+*.cert
+*.crt
+*.p12
+
+# Docker
+docker-compose.override.yml
+.docker/
+
+# Backup files
+*.backup
+*.old
+*.orig
+
+# Lock files (keep package-lock.json but ignore others)
+pnpm-lock.yaml
+bun.lockb
+
+# AI and ML models (if storing locally)
+models/
+*.h5
+*.pkl
+*.joblib
+
+# Test execution artifacts
+test-output/
+allure-results/
+allure-report/
+cucumber-reports/
+extent-reports/
+
+# Security
+.npmrc
+.yarnrc
+
+# Miscellaneous
+*.log.*
+*.gz
+*.zip
+*.tar
+*.rar
+.eslintcache
+.stylelintcache

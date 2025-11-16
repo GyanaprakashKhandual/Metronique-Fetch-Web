@@ -6,11 +6,26 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "keywords": [],
-  "author": "",
+  "keywords": [
+    "Rest Assured",
+    "API Test",
+    "Automation",
+    "Generative AI",
+    "Agentic AI"
+  ],
+  "author": "Gyana prakash Khandual",
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
     "express": "^5.1.0"
-  }
+  },
+  "devDependencies": {},
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/GyanaprakashKhandual/Metronique-Fetch-Web.git"
+  },
+  "bugs": {
+    "url": "https://github.com/GyanaprakashKhandual/Metronique-Fetch-Web/issues"
+  },
+  "homepage": "https://github.com/GyanaprakashKhandual/Metronique-Fetch-Web#readme"
 }
