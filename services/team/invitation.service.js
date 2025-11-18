@@ -1,10 +1,10 @@
 const mongoose = require('mongoose');
-const Invitation = require('../models/invitation.model');
-const Team = require('../models/team.model');
-const User = require('../models/user.model');
-const TeamMember = require('../models/team.member.model');
-const AuditLog = require('../models/audit.log.model');
-const emailService = require('./notification/email.service');
+const Invitation = require('../../models/invitation.model');
+const Team = require('../../models/team.model');
+const User = require('../../models/user.model');
+const TeamMember = require('../../models/team.member.model');
+const AuditLog = require('../../models/audit.model');
+const emailService = require('../notification/mail.service');
 
 class InvitationService {
     async sendInvitation(teamId, email, role = 'member', invitedById, message = '', projectsAccess = [], metadata = {}) {

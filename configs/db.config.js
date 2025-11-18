@@ -16,7 +16,7 @@ const databaseConfig = {
         retryReads: true,
         w: 'majority',
         readPreference: 'primaryPreferred',
-        appName: process.env.APP_NAME || 'ImageFetch',
+        appName: process.env.APP_NAME,
         monitorCommands: process.env.DEBUG_MONGO === 'true',
         autoIndex: process.env.NODE_ENV !== 'production',
         family: 4
@@ -93,9 +93,12 @@ const connectDB = async () => {
         });
 
         if (process.env.NODE_ENV !== 'production') {
+            console.log('[INDEX] Starting index creation...');
             await createIndexes();
+            console.log('[INDEX] Index creation completed');
         }
 
+        console.log('[DATABASE] Returning connection successfully');
         return connection;
     } catch (error) {
         console.error('MongoDB Connection Failed:', error.message);

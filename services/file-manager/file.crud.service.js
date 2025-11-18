@@ -1,6 +1,6 @@
 const TestFile = require('../models/test.file.model');
 const CodeChangeHistory = require('../models/code.change.history.model');
-const AuditLog = require('../models/audit.log.model');
+const AuditLog = require('../models/audit.model');
 const crypto = require('crypto');
 
 class FileCRUDService {

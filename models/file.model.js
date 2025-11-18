@@ -2,11 +2,13 @@ const mongoose = require('mongoose');
 
 const fileSchema = new mongoose.Schema({
     filename: {
-        type: String
+        type: String,
+        required: true
     },
     uploadedFilename: {
         type: String,
-        unique: true
+        unique: true,
+        sparse: true
     },
     fileUrl: {
         type: String
@@ -16,7 +18,7 @@ const fileSchema = new mongoose.Schema({
     },
     fileType: {
         type: String,
-        enum: ['image', 'video', 'document'],
+        enum: ['image', 'video', 'document', 'other'],
         default: 'document'
     },
     size: {
@@ -39,12 +41,12 @@ const fileSchema = new mongoose.Schema({
     }
 }, { timestamps: true });
 
-FileSchema.index({ userId: 1, uploadedAt: -1 });
-FileSchema.index({ fileType: 1 });
-FileSchema.index({ uploadedFilename: 1 });
-FileSchema.index({ userId: 1, fileType: 1 });
+fileSchema.index({ userId: 1, uploadedAt: -1 });
+fileSchema.index({ fileType: 1 });
+fileSchema.index({ uploadedFilename: 1 });
+fileSchema.index({ userId: 1, fileType: 1 });
 
-FileSchema.pre('save', function(next) {
+fileSchema.pre('save', function(next) {
     try {
         console.log(`[FILE_MODEL] PRE_SAVE | File: ${this.filename} | User: ${this.userId} | Size: ${this.size}`);
         next();
@@ -54,7 +56,7 @@ FileSchema.pre('save', function(next) {
     }
 });
 
-FileSchema.post('save', function(doc) {
+fileSchema.post('save', function(doc) {
     try {
         console.log(`[FILE_MODEL] POST_SAVE_SUCCESS | File ID: ${doc._id} | Filename: ${doc.filename}`);
     } catch (error) {
@@ -62,7 +64,7 @@ FileSchema.post('save', function(doc) {
     }
 });
 
-FileSchema.pre('deleteOne', { document: true }, function(next) {
+fileSchema.pre('deleteOne', { document: true }, function(next) {
     try {
         console.log(`[FILE_MODEL] PRE_DELETE | File ID: ${this._id} | Filename: ${this.filename}`);
         next();
@@ -72,12 +74,14 @@ FileSchema.pre('deleteOne', { document: true }, function(next) {
     }
 });
 
-FileSchema.post('deleteOne', { document: true }, function(doc) {
+fileSchema.post('deleteOne', { document: true }, function(doc) {
     try {
         console.log(`[FILE_MODEL] POST_DELETE_SUCCESS | File ID: ${doc._id} | Filename: ${doc.filename}`);
     } catch (error) {
         console.error(`[FILE_MODEL] POST_DELETE_ERROR | Error: ${error.message}`);
     }
 });
+
+console.log('[MODEL] File model loaded');
 
 module.exports = mongoose.model('File', fileSchema);

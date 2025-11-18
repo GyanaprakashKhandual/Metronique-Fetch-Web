@@ -27,8 +27,7 @@ const invitationSchema = new mongoose.Schema({
         default: 'member'
     },
     token: {
-        type: String,
-        unique: true
+        type: String
     },
     expiresAt: {
         type: Date,

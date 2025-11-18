@@ -1,6 +1,6 @@
 const crypto = require('crypto');
 const encryptionService = require('./encryption.service');
-const AuditLog = require('../models/audit.log.model');
+const AuditLog = require('../../models/audit.model');
 
 class CredentialVaultService {
     constructor() {

@@ -1,5 +1,5 @@
 const crypto = require('crypto');
-const AuditLog = require('../models/audit.log.model');
+const AuditLog = require('../../models/audit.model');
 
 class EncryptionService {
     constructor() {

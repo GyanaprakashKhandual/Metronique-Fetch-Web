@@ -11,14 +11,11 @@ const userSchema = new mongoose.Schema({
     },
     email: {
         type: String,
-        unique: true,
         lowercase: true,
         trim: true
     },
     username: {
         type: String,
-        unique: true,
-        sparse: true,
         trim: true,
         lowercase: true
     },
@@ -259,7 +256,6 @@ const userSchema = new mongoose.Schema({
     referral: {
         code: {
             type: String,
-            unique: true,
             sparse: true
         },
         referredBy: {
@@ -319,13 +315,12 @@ const userSchema = new mongoose.Schema({
     toObject: { virtuals: true }
 });
 
-userSchema.index({ email: 1 });
-userSchema.index({ username: 1 });
+userSchema.index({ email: 1 }, { unique: true, sparse: true });
+userSchema.index({ username: 1 }, { unique: true, sparse: true });
 userSchema.index({ 'subscription.status': 1 });
 userSchema.index({ role: 1 });
 userSchema.index({ isActive: 1, isDeleted: 1 });
 userSchema.index({ createdAt: -1 });
-userSchema.index({ 'referral.code': 1 });
 
 userSchema.virtual('fullName').get(function () {
     return `${this.firstName} ${this.lastName}`;
@@ -447,5 +442,7 @@ function generateReferralCode() {
     }
     return code;
 }
+
+console.log('[MODEL] User model loaded');
 
 module.exports = mongoose.model('User', userSchema);

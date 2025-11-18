@@ -5,9 +5,9 @@ const anthropic = new Anthropic({
 });
 
 const anthropicConfig = {
-    model: process.env.ANTHROPIC_MODEL || 'claude-3-5-sonnet-20241022',
-    maxTokens: parseInt(process.env.ANTHROPIC_MAX_TOKENS) || 4096,
-    temperature: parseFloat(process.env.ANTHROPIC_TEMPERATURE) || 0.7,
+    model: process.env.ANTHROPIC_MODEL,
+    maxTokens: parseInt(process.env.ANTHROPIC_MAX_TOKENS),
+    temperature: parseFloat(process.env.ANTHROPIC_TEMPERATURE),
     apiVersion: '2023-06-01',
     retryAttempts: 3,
     timeout: 60000

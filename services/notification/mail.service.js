@@ -1,8 +1,8 @@
-const { transporter, getFromAddress, getSupportAddress } = require('./mail.config');
-const onboardLinkTemplate = require('./templates/onboard.link.template');
-const passwordResetTemplate = require('./templates/password.reset.template');
-const verificationTemplate = require('./templates/verification.template');
-const utilTemplate = require('./templates/util.template');
+const { transporter, getFromAddress, getSupportAddress } = require('../../configs/mail.config');
+const onboardLinkTemplate = require('../../templates/notification/onboard.link.template');
+const passwordResetTemplate = require('../../templates/notification/password.reset.template');
+const verificationTemplate = require('../../templates/notification/verification.template');
+const utilTemplate = require('../../templates/notification/util.template');
 
 const sendEmail = async (mailOptions) => {
     try {

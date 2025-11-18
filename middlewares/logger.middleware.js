@@ -243,24 +243,34 @@ const databaseQueryLogger = (req, res, next) => {
 
 const securityLogger = (req, res, next) => {
     const suspiciousPatterns = [
-        /(\.\.|\/etc\/|\/bin\/)/i,
-        /(union|select|insert|update|delete|drop)/i,
-        /(<script|<iframe|javascript:)/i
+        /(\.\.|\/etc\/|\/bin\/|\.\.\/|\.\.\\)/i,
+        /(union|select|insert|update|delete|drop|create|alter|exec|execute|script|javascript|eval)/i,
+        /(<script|<iframe|<object|<embed|onerror|onload)/i
     ];
 
-    const checkSuspicious = (obj) => {
-        const str = JSON.stringify(obj);
+    const checkSuspicious = (str) => {
         return suspiciousPatterns.some(pattern => pattern.test(str));
     };
 
-    if (checkSuspicious(req.body) || checkSuspicious(req.query) || checkSuspicious(req.params)) {
+    const checkObject = (obj) => {
+        for (let key in obj) {
+            if (typeof obj[key] === 'string' && checkSuspicious(obj[key])) {
+                return true;
+            }
+            if (typeof obj[key] === 'object' && checkObject(obj[key])) {
+                return true;
+            }
+        }
+        return false;
+    };
+
+    if (checkObject(req.body) || checkObject(req.params)) {
         logger.warn('Suspicious Request Detected', {
             method: req.method,
             url: req.originalUrl || req.url,
             ip: req.ip,
             userAgent: req.get('user-agent'),
             body: req.body,
-            query: req.query,
             params: req.params,
             requestId: req.id,
             timestamp: new Date().toISOString()

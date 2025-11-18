@@ -1,6 +1,6 @@
 const { createOctokitInstance, getRepository, listBranches, getFileContent, verifyWebhookSignature, createWebhook, deleteWebhook, getRateLimit } = require('../config/github.config');
 const Repository = require('../models/repository.model');
-const AuditLog = require('../models/audit.log.model');
+const AuditLog = require('../models/audit.model');
 
 class GitHubService {
     async connectRepository(projectId, repoUrl, accessToken, userId, metadata = {}) {

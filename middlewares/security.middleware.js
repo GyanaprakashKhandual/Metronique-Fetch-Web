@@ -1,8 +1,8 @@
 const helmet = require('helmet');
-const mongoSanitize = require('express-mongo-sanitize');
-const xss = require('xss-clean');
 const hpp = require('hpp');
 const crypto = require('crypto');
+
+console.log('[SECURITY] Initializing security middleware');
 
 const helmetConfig = helmet({
     contentSecurityPolicy: {
@@ -38,14 +38,54 @@ const helmetConfig = helmet({
     xssFilter: true
 });
 
-const mongoSanitizeMiddleware = mongoSanitize({
-    replaceWith: '_',
-    onSanitize: ({ req, key }) => {
-        console.warn(`Potential NoSQL injection detected in ${key}`);
-    }
-});
+const customSanitizer = (req, res, next) => {
+    try {
+        const sanitize = (obj, depth = 0) => {
+            if (depth > 10) return obj;
+            if (typeof obj !== 'object' || obj === null) return obj;
 
-const xssMiddleware = xss();
+            for (let key in obj) {
+                try {
+                    if (typeof obj[key] === 'string') {
+                        obj[key] = obj[key]
+                            .trim()
+                            .replace(/[<>]/g, '')
+                            .replace(/\$where/gi, '')
+                            .replace(/\$regex/gi, '')
+                            .replace(/\$or/gi, '')
+                            .replace(/\$and/gi, '');
+
+                        if (obj[key].includes('$') || obj[key].includes('__proto__')) {
+                            console.warn(`[SECURITY] Potential injection attempt detected in field: ${key}`);
+                            obj[key] = obj[key].replace(/[$]/g, '');
+                        }
+                    } else if (typeof obj[key] === 'object' && obj[key] !== null && obj[key].constructor === Object) {
+                        obj[key] = sanitize(obj[key], depth + 1);
+                    } else if (Array.isArray(obj[key])) {
+                        obj[key] = obj[key].map(item => 
+                            typeof item === 'object' ? sanitize(item, depth + 1) : item
+                        );
+                    }
+                } catch (err) {
+                    console.error(`[SECURITY] Sanitization error on field ${key}: ${err.message}`);
+                }
+            }
+            return obj;
+        };
+
+        if (req.body) {
+            req.body = sanitize(req.body);
+        }
+        if (req.params) {
+            req.params = sanitize(req.params);
+        }
+
+        next();
+    } catch (error) {
+        console.error(`[SECURITY] Sanitizer error: ${error.message}`);
+        next();
+    }
+};
 
 const hppMiddleware = hpp({
     whitelist: [
@@ -96,6 +136,7 @@ const csrfProtection = (req, res, next) => {
     const sessionToken = req.session?.csrfToken;
 
     if (!token || !sessionToken || token !== sessionToken) {
+        console.warn(`[SECURITY] CSRF token validation failed for ${req.path}`);
         return res.status(403).json({
             success: false,
             message: 'Invalid CSRF token',
@@ -107,11 +148,20 @@ const csrfProtection = (req, res, next) => {
 };
 
 const generateCsrfToken = (req, res, next) => {
-    if (!req.session.csrfToken) {
-        req.session.csrfToken = crypto.randomBytes(32).toString('hex');
+    try {
+        if (!req.session) {
+            req.session = {};
+        }
+        if (!req.session.csrfToken) {
+            req.session.csrfToken = crypto.randomBytes(32).toString('hex');
+            console.log('[SECURITY] CSRF token generated');
+        }
+        res.locals.csrfToken = req.session.csrfToken;
+        next();
+    } catch (error) {
+        console.error(`[SECURITY] CSRF token generation error: ${error.message}`);
+        next();
     }
-    res.locals.csrfToken = req.session.csrfToken;
-    next();
 };
 
 const preventBruteForce = (maxAttempts = 5, windowMs = 15 * 60 * 1000) => {
@@ -128,6 +178,7 @@ const preventBruteForce = (maxAttempts = 5, windowMs = 15 * 60 * 1000) => {
         }
 
         if (userAttempts.count >= maxAttempts) {
+            console.warn(`[SECURITY] Brute force attempt detected from ${key}`);
             return res.status(429).json({
                 success: false,
                 message: 'Too many attempts. Please try again later.',
@@ -141,33 +192,12 @@ const preventBruteForce = (maxAttempts = 5, windowMs = 15 * 60 * 1000) => {
     };
 };
 
-const sanitizeInput = (req, res, next) => {
-    const sanitize = (obj) => {
-        if (typeof obj !== 'object' || obj === null) return obj;
-
-        for (let key in obj) {
-            if (typeof obj[key] === 'string') {
-                obj[key] = obj[key].trim();
-                obj[key] = obj[key].replace(/[<>]/g, '');
-            } else if (typeof obj[key] === 'object') {
-                obj[key] = sanitize(obj[key]);
-            }
-        }
-        return obj;
-    };
-
-    if (req.body) req.body = sanitize(req.body);
-    if (req.query) req.query = sanitize(req.query);
-    if (req.params) req.params = sanitize(req.params);
-
-    next();
-};
-
 const validateContentType = (req, res, next) => {
     if (['POST', 'PUT', 'PATCH'].includes(req.method)) {
         const contentType = req.headers['content-type'];
 
         if (!contentType) {
+            console.warn(`[SECURITY] Missing Content-Type header for ${req.method} ${req.path}`);
             return res.status(400).json({
                 success: false,
                 message: 'Content-Type header is required',
@@ -184,6 +214,7 @@ const validateContentType = (req, res, next) => {
         const isAllowed = allowedTypes.some(type => contentType.includes(type));
 
         if (!isAllowed) {
+            console.warn(`[SECURITY] Unsupported Content-Type: ${contentType}`);
             return res.status(415).json({
                 success: false,
                 message: 'Unsupported Content-Type',
@@ -204,6 +235,7 @@ const preventOpenRedirect = (req, res, next) => {
             const allowedHosts = process.env.ALLOWED_REDIRECT_HOSTS?.split(',') || [req.get('host')];
 
             if (!allowedHosts.includes(url.host)) {
+                console.warn(`[SECURITY] Open redirect attempt to ${url.host}`);
                 return res.status(400).json({
                     success: false,
                     message: 'Invalid redirect URL',
@@ -211,6 +243,7 @@ const preventOpenRedirect = (req, res, next) => {
                 });
             }
         } catch (error) {
+            console.warn(`[SECURITY] Invalid redirect URL format: ${redirect}`);
             return res.status(400).json({
                 success: false,
                 message: 'Invalid redirect URL format',
@@ -263,6 +296,7 @@ const validateFileUpload = (req, res, next) => {
 
     for (let file of files) {
         if (!allowedMimeTypes.includes(file.mimetype)) {
+            console.warn(`[SECURITY] File type not allowed: ${file.mimetype}`);
             return res.status(400).json({
                 success: false,
                 message: `File type ${file.mimetype} is not allowed`,
@@ -272,6 +306,7 @@ const validateFileUpload = (req, res, next) => {
 
         const fileExt = file.originalname.substring(file.originalname.lastIndexOf('.')).toLowerCase();
         if (!allowedExtensions.includes(fileExt)) {
+            console.warn(`[SECURITY] File extension not allowed: ${fileExt}`);
             return res.status(400).json({
                 success: false,
                 message: `File extension ${fileExt} is not allowed`,
@@ -281,6 +316,7 @@ const validateFileUpload = (req, res, next) => {
 
         const maxSize = 10 * 1024 * 1024;
         if (file.size > maxSize) {
+            console.warn(`[SECURITY] File size exceeds limit: ${file.size} bytes`);
             return res.status(400).json({
                 success: false,
                 message: 'File size exceeds maximum allowed size of 10MB',
@@ -300,6 +336,7 @@ const ipWhitelist = (whitelist) => {
             return next();
         }
 
+        console.warn(`[SECURITY] Access denied from IP: ${clientIp}`);
         return res.status(403).json({
             success: false,
             message: 'Access denied from this IP address',
@@ -311,7 +348,7 @@ const ipWhitelist = (whitelist) => {
 const detectSuspiciousActivity = (req, res, next) => {
     const suspiciousPatterns = [
         /(\.\.|\/etc\/|\/bin\/|\.\.\/|\.\.\\)/i,
-        /(union|select|insert|update|delete|drop|create|alter|exec|execute|script|javascript|eval)/i,
+        /(union|select|insert|update|delete|drop|create|alter|exec|execute)/i,
         /(<script|<iframe|<object|<embed|onerror|onload)/i
     ];
 
@@ -324,15 +361,15 @@ const detectSuspiciousActivity = (req, res, next) => {
             if (typeof obj[key] === 'string' && checkString(obj[key])) {
                 return true;
             }
-            if (typeof obj[key] === 'object' && checkObject(obj[key])) {
+            if (typeof obj[key] === 'object' && obj[key] !== null && checkObject(obj[key])) {
                 return true;
             }
         }
         return false;
     };
 
-    if (checkObject(req.body) || checkObject(req.query) || checkObject(req.params)) {
-        console.warn(`Suspicious activity detected from IP: ${req.ip}`);
+    if (checkObject(req.body) || checkObject(req.params)) {
+        console.warn(`[SECURITY] Suspicious activity detected from IP: ${req.ip}`);
         return res.status(403).json({
             success: false,
             message: 'Suspicious activity detected',
@@ -351,30 +388,28 @@ const requestIdMiddleware = (req, res, next) => {
 
 const securityMiddleware = [
     helmetConfig,
-    mongoSanitizeMiddleware,
-    xssMiddleware,
+    customSanitizer,
     hppMiddleware,
     preventClickjacking,
     secureHeaders,
-    sanitizeInput,
     validateContentType,
     preventOpenRedirect,
     detectSuspiciousActivity,
     requestIdMiddleware
 ];
 
+console.log('[SECURITY] Security middleware loaded successfully');
+
 module.exports = {
     securityMiddleware,
     helmetConfig,
-    mongoSanitizeMiddleware,
-    xssMiddleware,
+    customSanitizer,
     hppMiddleware,
     preventClickjacking,
     secureHeaders,
     csrfProtection,
     generateCsrfToken,
     preventBruteForce,
-    sanitizeInput,
     validateContentType,
     preventOpenRedirect,
     preventMassAssignment,

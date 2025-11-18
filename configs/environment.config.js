@@ -352,15 +352,7 @@ const getConfigSummary = () => {
     };
 };
 
-try {
-    validateEnvironment();
-    logEnvironmentInfo();
-    const summary = getConfigSummary();
-    console.log('Configuration Summary:', JSON.stringify(summary, null, 2));
-} catch (error) {
-    console.error('Environment Validation Failed:', error.message);
-    process.exit(1);
-}
+validateEnvironment();
 
 module.exports = environment;
 module.exports.validateEnvironment = validateEnvironment;

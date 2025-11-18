@@ -1,7 +1,7 @@
 const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
-const User = require('../models/user.model');
-const AuditLog = require('../models/audit.log.model');
+const User = require('../../models/user.model');
+const AuditLog = require('../../models/audit.model');
 
 class PasswordService {
     constructor() {

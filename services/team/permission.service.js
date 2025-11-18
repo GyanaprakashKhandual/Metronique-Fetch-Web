@@ -1,7 +1,5 @@
-const TeamMember = require('../models/team.member.model');
-const Team = require('../models/team.model');
-const User = require('../models/user.model');
-const AuditLog = require('../models/audit.log.model');
+const TeamMember = require('../../models/team.member.model');
+const AuditLog = require('../../models/audit.model');
 
 class PermissionService {
     constructor() {

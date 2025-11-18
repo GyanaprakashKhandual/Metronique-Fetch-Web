@@ -5,12 +5,12 @@ const openai = new OpenAI({
 });
 
 const openaiConfig = {
-    model: process.env.OPENAI_MODEL || 'gpt-4-turbo-preview',
-    maxTokens: parseInt(process.env.OPENAI_MAX_TOKENS) || 4096,
-    temperature: parseFloat(process.env.OPENAI_TEMPERATURE) || 0.7,
-    topP: parseFloat(process.env.OPENAI_TOP_P) || 1,
-    frequencyPenalty: parseFloat(process.env.OPENAI_FREQUENCY_PENALTY) || 0,
-    presencePenalty: parseFloat(process.env.OPENAI_PRESENCE_PENALTY) || 0,
+    model: process.env.OPENAI_MODEL,
+    maxTokens: parseInt(process.env.OPENAI_MAX_TOKENS),
+    temperature: parseFloat(process.env.OPENAI_TEMPERATURE),
+    topP: parseFloat(process.env.OPENAI_TOP_P),
+    frequencyPenalty: parseFloat(process.env.OPENAI_FREQUENCY_PENALTY),
+    presencePenalty: parseFloat(process.env.OPENAI_PRESENCE_PENALTY),
     retryAttempts: 3,
     timeout: 60000
 };

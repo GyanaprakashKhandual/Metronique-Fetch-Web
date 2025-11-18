@@ -3,11 +3,11 @@ const jwt = require('jsonwebtoken');
 const jwtConfig = {
     secret: process.env.JWT_SECRET,
     refreshSecret: process.env.JWT_REFRESH_SECRET,
-    accessTokenExpiry: process.env.JWT_ACCESS_EXPIRY || '15m',
-    refreshTokenExpiry: process.env.JWT_REFRESH_EXPIRY || '7d',
+    accessTokenExpiry: process.env.JWT_ACCESS_EXPIRY,
+    refreshTokenExpiry: process.env.JWT_REFRESH_EXPIRY,
     algorithm: 'HS256',
-    issuer: process.env.JWT_ISSUER || 'metronique-fetch',
-    audience: process.env.JWT_AUDIENCE || 'metronique-users'
+    issuer: process.env.JWT_ISSUER,
+    audience: process.env.JWT_AUDIENCE
 };
 
 const validateConfig = () => {

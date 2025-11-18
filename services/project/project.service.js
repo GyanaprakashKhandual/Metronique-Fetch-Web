@@ -1,11 +1,11 @@
 const mongoose = require('mongoose');
-const Project = require('../models/project.model');
-const User = require('../models/user.model');
-const Team = require('../models/team.model');
-const Repository = require('../models/repository.model');
-const DatabaseConnection = require('../models/database.connection.model');
-const AuditLog = require('../models/audit.log.model');
-const TeamMember = require('../models/team.member.model');
+const Project = require('../../models/project.model');
+const User = require('../../models/user.model');
+const Team = require('../../models/team.model');
+const Repository = require('../../models/repository.model');
+const DatabaseConnection = require('../../models/database.connection.model');
+const AuditLog = require('../../models/audit.model');
+
 
 class ProjectService {
     async createProject(projectData, userId, teamId = null, metadata = {}) {

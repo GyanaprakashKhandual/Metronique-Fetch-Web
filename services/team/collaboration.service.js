@@ -1,9 +1,8 @@
 const mongoose = require('mongoose');
-const TeamMember = require('../models/team.member.model');
-const Team = require('../models/team.model');
-const Comment = require('../models/comment.model');
-const AuditLog = require('../models/audit.log.model');
-const Notification = require('../models/notification.model');
+const TeamMember = require('../../models/team.member.model');
+const Comment = require('../../models/comment.model');
+const AuditLog = require('../../models/audit.model');
+const Notification = require('../../models/notification.model');
 
 class CollaborationService {
     async addComment(entityType, entityId, content, authorId, teamId, metadata = {}) {

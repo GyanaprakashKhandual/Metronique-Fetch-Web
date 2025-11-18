@@ -1,8 +1,8 @@
 const mongoose = require('mongoose');
-const Project = require('../models/project.model');
-const Repository = require('../models/repository.model');
-const DatabaseConnection = require('../models/database.connection.model');
-const AuditLog = require('../models/audit.log.model');
+const Project = require('../../models/project.model');
+const Repository = require('../../models/repository.model');
+const DatabaseConnection = require('../../models/database.connection.model');
+const AuditLog = require('../../models/audit.model');
 
 class ProjectConfigService {
     async updateTestConfig(projectId, testConfig, userId, metadata = {}) {

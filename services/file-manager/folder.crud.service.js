@@ -1,6 +1,6 @@
 const TestFolder = require('../models/test.folder.model');
 const TestFile = require('../models/test.file.model');
-const AuditLog = require('../models/audit.log.model');
+const AuditLog = require('../models/audit.model');
 
 class FolderCRUDService {
     async createFolder(projectId, name, parentFolderId, userId, metadata = {}) {

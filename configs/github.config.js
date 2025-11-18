@@ -7,7 +7,7 @@ const githubConfig = {
     appId: process.env.GITHUB_APP_ID,
     privateKey: process.env.GITHUB_PRIVATE_KEY,
     webhookSecret: process.env.GITHUB_WEBHOOK_SECRET,
-    callbackUrl: process.env.GITHUB_CALLBACK_URL || `${process.env.BACKEND_URL}/api/v1/github/callback`,
+    callbackUrl: process.env.GITHUB_CALLBACK_URL,
     scope: ['repo', 'read:user', 'user:email', 'read:org', 'admin:repo_hook'],
     apiVersion: '2022-11-28',
     baseUrl: 'https://api.github.com',

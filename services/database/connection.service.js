@@ -2,7 +2,7 @@ const mongoose = require('mongoose');
 const mysql = require('mysql2/promise');
 const { Client: PostgresClient } = require('pg');
 const DatabaseConnection = require('../models/database.connection.model');
-const AuditLog = require('../models/audit.log.model');
+const AuditLog = require('../models/audit.model');
 
 class ConnectionService {
     constructor() {

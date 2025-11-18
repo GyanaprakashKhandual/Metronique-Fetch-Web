@@ -1,7 +1,7 @@
-const TeamMember = require('../models/team.member.model');
-const Project = require('../models/project.model');
-const User = require('../models/user.model');
-const AuditLog = require('../models/audit.log.model');
+const TeamMember = require('../../models/team.member.model');
+const Project = require('../../models/project.model');
+const User = require('../../models/user.model');
+const AuditLog = require('../../models/audit.model');
 
 class AccessControlService {
     async checkUserPermission(userId, permission, resourceType, resourceId) {

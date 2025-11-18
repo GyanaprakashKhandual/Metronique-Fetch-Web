@@ -1,10 +1,9 @@
 const mongoose = require('mongoose');
-const Team = require('../models/team.model');
-const TeamMember = require('../models/team.member.model');
-const User = require('../models/user.model');
-const Invitation = require('../models/invitation.model');
-const Project = require('../models/project.model');
-const AuditLog = require('../models/audit.log.model');
+const Team = require('../../models/team.model');
+const TeamMember = require('../../models/team.member.model');
+const User = require('../../models/user.model');
+const Project = require('../../models/project.model');
+const AuditLog = require('../../models/audit.model');
 
 class TeamService {
     async createTeam(teamData, userId, metadata = {}) {
