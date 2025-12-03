@@ -311,6 +311,7 @@ const register = catchAsync(async (req, res) => {
         }
     });
 });
+// In your user.controller.js - Replace googleAuthCallback and githubAuthCallback
 
 const googleAuthCallback = catchAsync(async (req, res) => {
     const user = req.user;
@@ -318,7 +319,7 @@ const googleAuthCallback = catchAsync(async (req, res) => {
 
     if (!user) {
         console.warn(`[USER_CONTROLLER] Google OAuth failed: No user object`);
-        return res.status(401).json({ success: false, message: 'Authentication failed' });
+        return res.redirect(`${process.env.FRONTEND_URL}/auth?error=authentication_failed`);
     }
 
     const { accessToken, refreshToken } = generateTokenPair({
@@ -327,11 +328,19 @@ const googleAuthCallback = catchAsync(async (req, res) => {
         role: user.role
     });
 
+    // Set tokens in secure httpOnly cookies
+    res.cookie('accessToken', accessToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        maxAge: 15 * 60 * 1000 // 15 minutes
+    });
+
     res.cookie('refreshToken', refreshToken, {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
         sameSite: 'lax',
-        maxAge: 7 * 24 * 60 * 60 * 1000
+        maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
     });
 
     await AuditLog.create({
@@ -349,15 +358,10 @@ const googleAuthCallback = catchAsync(async (req, res) => {
     });
 
     console.log(`[USER_CONTROLLER] Google OAuth successful: ${user.email}`);
-    res.json({
-        success: true,
-        message: 'Google authentication successful',
-        data: {
-            user,
-            token: accessToken,
-            refreshToken
-        }
-    });
+    
+    // Simple redirect to /app - tokens in httpOnly cookies
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+    res.redirect(`${frontendUrl}/app`);
 });
 
 const githubAuthCallback = catchAsync(async (req, res) => {
@@ -366,7 +370,7 @@ const githubAuthCallback = catchAsync(async (req, res) => {
 
     if (!user) {
         console.warn(`[USER_CONTROLLER] GitHub OAuth failed: No user object`);
-        return res.status(401).json({ success: false, message: 'Authentication failed' });
+        return res.redirect(`${process.env.FRONTEND_URL}/auth?error=authentication_failed`);
     }
 
     const { accessToken, refreshToken } = generateTokenPair({
@@ -375,11 +379,19 @@ const githubAuthCallback = catchAsync(async (req, res) => {
         role: user.role
     });
 
+    // Set tokens in secure httpOnly cookies
+    res.cookie('accessToken', accessToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        maxAge: 15 * 60 * 1000 // 15 minutes
+    });
+
     res.cookie('refreshToken', refreshToken, {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
         sameSite: 'lax',
-        maxAge: 7 * 24 * 60 * 60 * 1000
+        maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
     });
 
     await AuditLog.create({
@@ -397,16 +409,12 @@ const githubAuthCallback = catchAsync(async (req, res) => {
     });
 
     console.log(`[USER_CONTROLLER] GitHub OAuth successful: ${user.email}`);
-    res.json({
-        success: true,
-        message: 'GitHub authentication successful',
-        data: {
-            user,
-            token: accessToken,
-            refreshToken
-        }
-    });
+    
+    // Simple redirect to /app - tokens in httpOnly cookies
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+    res.redirect(`${frontendUrl}/app`);
 });
+
 
 const getCurrentUser = catchAsync(async (req, res) => {
     console.log(`[USER_CONTROLLER] Fetching current user: ${req.user._id}`);

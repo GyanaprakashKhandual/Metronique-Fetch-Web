@@ -2,6 +2,10 @@ require('dotenv').config();
 const express = require('express');
 const mongoose = require('mongoose');
 const path = require('path');
+const session = require('express-session');
+const passport = require('passport');
+const swaggerUi = require('swagger-ui-express');
+const swaggerDocument = require('./public/swagger.json');
 
 console.log('[APP_INIT] Starting application initialization...');
 console.log(`[APP_ENV] Environment: ${process.env.NODE_ENV || 'development'}`);
@@ -11,6 +15,7 @@ try {
     const connectDB = require('./configs/db.config');
     const { logEnvironmentInfo } = require('./configs/environment.config');
     const { getIO, initializeSocket } = require('./configs/socket.config');
+    require('./configs/passport.config'); // ← LOAD PASSPORT CONFIG
     console.log('[CONFIGS] Configuration files loaded successfully');
 
     logEnvironmentInfo();
@@ -18,28 +23,60 @@ try {
     console.log('[APP_SETUP] Setting up Express app...');
     const app = express();
 
+    // Middleware
     app.use(express.json({ limit: '50mb' }));
     app.use(express.urlencoded({ limit: '50mb', extended: true }));
+    app.use(express.static(path.join(__dirname, 'public')));
+    app.use('/docs', express.static(path.join(__dirname, 'docs')));
+
     console.log('[MIDDLEWARE] Express JSON and URL-encoded middleware configured');
 
+    // Session Middleware - ADD THIS BEFORE PASSPORT
+    app.use(session({
+        secret: process.env.SESSION_SECRET || 'your-session-secret-key',
+        resave: false,
+        saveUninitialized: false,
+        cookie: {
+            secure: process.env.COOKIE_SECURE === 'true', // Set to true in production with HTTPS
+            httpOnly: process.env.COOKIE_HTTP_ONLY !== 'false',
+            sameSite: process.env.COOKIE_SAME_SITE || 'lax',
+            maxAge: parseInt(process.env.COOKIE_MAX_AGE) || 86400000 // 24 hours
+        }
+    }));
+
+    console.log('[MIDDLEWARE] Express-session middleware configured');
+
+    // Passport Middleware - ADD AFTER SESSION
+    app.use(passport.initialize());
+    app.use(passport.session());
+
+    console.log('[MIDDLEWARE] Passport middleware configured');
+
+    // Logger middleware
     app.use((req, res, next) => {
         console.log(`[REQUEST] ${req.method} ${req.path} | IP: ${req.ip} | ContentType: ${req.get('content-type')}`);
         next();
     });
 
+    // Basic Routes
     app.get('/', (req, res) => {
         console.log('[ROUTE] GET / - Root route accessed');
-        res.json({
-            message: 'Welcome to the API',
-            app: process.env.APP_NAME || 'Fetch',
-            version: process.env.API_VERSION || 'v1',
-            environment: process.env.NODE_ENV || 'development',
-            timestamp: new Date().toISOString()
-        });
+        res.sendFile(path.join(__dirname, 'public', 'index.html'));
     });
 
     app.get('/health', (req, res) => {
         console.log('[HEALTH_CHECK] Health check endpoint accessed');
+        res.sendFile(path.join(__dirname, 'public', 'health.html'));
+    });
+
+    app.get('/documentation', (req, res) => {
+        console.log('[DOCUMENT_CHECK] Document endpoint accessed');
+        res.sendFile(path.join(__dirname, 'public', 'document.html'));
+    });
+
+    // Health API
+    app.get('/health-api', (req, res) => {
+        console.log('[HEALTH_API] Health API endpoint accessed');
         res.json({
             status: 'OK',
             timestamp: new Date().toISOString(),
@@ -49,52 +86,87 @@ try {
         });
     });
 
-    app.get('/api-info', (req, res) => {
-        console.log('[API_INFO] API information endpoint accessed');
-        res.json({
-            app: process.env.APP_NAME || 'Fetch',
-            version: process.env.API_VERSION || 'v1',
-            host: process.env.HOST || 'localhost',
-            port: process.env.PORT || 5000,
-            environment: process.env.NODE_ENV || 'development',
-            timestamp: new Date().toISOString()
-        });
-    });
+    // Swagger UI
+    app.use('/api-info', swaggerUi.serve);
+    app.get('/api-info', swaggerUi.setup(swaggerDocument, {
+        customCss: `
+            body {
+                background: linear-gradient(135deg, #000000 0%, #1a1a1a 50%, #000000 100%);
+            }
+            .swagger-ui {
+                background: transparent;
+            }
+            .topbar {
+                background: rgba(255, 255, 255, 0.05);
+                border-bottom: 2px solid rgba(255, 255, 255, 0.1);
+            }
+            .swagger-ui .info .title {
+                color: #ffffff;
+                font-size: 28px;
+            }
+            .swagger-ui .info .description {
+                color: #aaaaaa;
+            }
+            .swagger-ui .opblock {
+                border: 1px solid rgba(255, 255, 255, 0.1);
+                border-radius: 8px;
+                background: rgba(255, 255, 255, 0.02);
+            }
+            .swagger-ui .opblock.opblock-get { border-left: 4px solid #61affe; }
+            .swagger-ui .opblock.opblock-post { border-left: 4px solid #49cc90; }
+            .swagger-ui .opblock.opblock-put { border-left: 4px solid #fca130; }
+            .swagger-ui .opblock.opblock-delete { border-left: 4px solid #f93e3e; }
+            .swagger-ui .opblock-summary { color: #ffffff; }
+            .swagger-ui table { background: rgba(255, 255, 255, 0.02); }
+            .swagger-ui table thead tr th {
+                color: #ffffff;
+                border-bottom: 2px solid rgba(255, 255, 255, 0.1);
+            }
+            .swagger-ui table tbody tr td {
+                color: #aaaaaa;
+                border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            }
+            .swagger-ui input,
+            .swagger-ui select,
+            .swagger-ui textarea {
+                background: rgba(255, 255, 255, 0.05);
+                color: #ffffff;
+                border: 1px solid rgba(255, 255, 255, 0.1);
+            }
+        `,
+        customSiteTitle: 'Fetch API Documentation'
+    }));
 
     console.log('[ROUTES] Starting route loading...');
 
+    // Register Routes
     try {
         console.log('[ROUTES] Loading user routes...');
         const userRoutes = require('./routes/user.route');
-        app.use(`${process.env.API_PREFIX || '/api/v1'}/users`, userRoutes);
-        console.log('[ROUTES] User routes registered successfully');
+        app.use('/api/v1/auth', userRoutes);
     } catch (err) {
-        console.error('[ROUTES_ERROR] Failed to load user routes:', err.message);
-        console.error('[ROUTES_ERROR] Stack:', err.stack);
+        console.error('[ROUTES_ERROR] user.route:', err.message);
     }
 
     try {
         console.log('[ROUTES] Loading team routes...');
         const teamRoutes = require('./routes/team.route');
         app.use(`${process.env.API_PREFIX || '/api/v1'}/teams`, teamRoutes);
-        console.log('[ROUTES] Team routes registered successfully');
     } catch (err) {
-        console.error('[ROUTES_ERROR] Failed to load team routes:', err.message);
-        console.error('[ROUTES_ERROR] Stack:', err.stack);
+        console.error('[ROUTES_ERROR] team.route:', err.message);
     }
 
     try {
         console.log('[ROUTES] Loading upload routes...');
         const uploadRoutes = require('./routes/upload.route');
         app.use(`${process.env.API_PREFIX || '/api/v1'}/files`, uploadRoutes);
-        console.log('[ROUTES] Upload routes registered successfully');
     } catch (err) {
-        console.error('[ROUTES_ERROR] Failed to load upload routes:', err.message);
-        console.error('[ROUTES_ERROR] Stack:', err.stack);
+        console.error('[ROUTES_ERROR] upload.route:', err.message);
     }
 
-    console.log('[ROUTES] All available routes registered');
+    console.log('[ROUTES] All routes registered');
 
+    // 404 Handler
     app.use((req, res, next) => {
         console.warn(`[ROUTE_NOT_FOUND] ${req.method} ${req.path}`);
         res.status(404).json({
@@ -106,6 +178,7 @@ try {
         });
     });
 
+    // Error Handler
     app.use((err, req, res, next) => {
         console.error(`[ERROR] ${err.message}`);
         console.error(`[ERROR_STACK] ${err.stack}`);
@@ -117,86 +190,62 @@ try {
         });
     });
 
+    // SERVER START FUNCTION
     const startServer = async () => {
         try {
-            console.log('[DATABASE] Initiating MongoDB connection...');
+            console.log('[DATABASE] Connecting to MongoDB...');
             const dbConnection = await connectDB();
-            console.log('[DATABASE] MongoDB connection established successfully');
-            console.log(`[DATABASE] Connected to: ${dbConnection.connection.host}/${dbConnection.connection.name}`);
+            console.log('[DATABASE] Connected to MongoDB');
+            console.log(`[DATABASE] Host: ${dbConnection.connection.host}/${dbConnection.connection.name}`);
 
             const PORT = parseInt(process.env.PORT, 10) || 5000;
             const HOST = process.env.HOST || 'localhost';
 
             const server = app.listen(PORT, HOST, () => {
-                console.log('[SERVER] Server initialization complete');
-                console.log(`[SERVER] Listening on: http://${HOST}:${PORT}`);
-                console.log(`[SERVER] API Version: ${process.env.API_VERSION || 'v1'}`);
-                console.log(`[SERVER] Environment: ${process.env.NODE_ENV || 'development'}`);
+                console.log('[SERVER] Running successfully');
+                console.log(`[SERVER] URL: http://${HOST}:${PORT}`);
             });
 
             if (process.env.WS_ENABLED !== 'false') {
-                console.log('[WEBSOCKET] Initializing WebSocket server...');
+                console.log('[WEBSOCKET] Initializing WebSocket...');
                 initializeSocket(server);
-                console.log('[WEBSOCKET] WebSocket server initialized successfully');
-                console.log(`[WEBSOCKET] Port: ${process.env.WS_PORT || 3001}`);
+                console.log('[WEBSOCKET] Ready');
             }
 
-            process.on('SIGTERM', async () => {
-                console.log('[SIGNAL] SIGTERM signal received: closing HTTP server');
+            // SHUTDOWN HANDLERS
+            const gracefulShutdown = async (signal) => {
+                console.log(`[SIGNAL] ${signal} received -> shutting down`);
                 server.close(async () => {
-                    console.log('[SIGNAL] HTTP server closed');
-                    try {
-                        const mongoose = require('mongoose');
-                        await mongoose.connection.close();
-                        console.log('[SIGNAL] MongoDB connection closed');
-                        process.exit(0);
-                    } catch (err) {
-                        console.error('[SIGNAL] Error closing MongoDB connection:', err.message);
-                        process.exit(1);
-                    }
+                    await mongoose.connection.close();
+                    console.log('[SIGNAL] MongoDB connection closed');
+                    process.exit(0);
                 });
-            });
+            };
 
-            process.on('SIGINT', async () => {
-                console.log('[SIGNAL] SIGINT signal received: closing HTTP server');
-                server.close(async () => {
-                    console.log('[SIGNAL] HTTP server closed');
-                    try {
-                        const mongoose = require('mongoose');
-                        await mongoose.connection.close();
-                        console.log('[SIGNAL] MongoDB connection closed');
-                        process.exit(0);
-                    } catch (err) {
-                        console.error('[SIGNAL] Error closing MongoDB connection:', err.message);
-                        process.exit(1);
-                    }
-                });
-            });
+            process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+            process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 
             process.on('unhandledRejection', (reason, promise) => {
-                console.error('[UNHANDLED_REJECTION] Promise rejected:', reason);
-                console.error('[UNHANDLED_REJECTION] Promise:', promise);
+                console.error('[UNHANDLED_REJECTION]', reason);
             });
 
             process.on('uncaughtException', (err) => {
-                console.error('[UNCAUGHT_EXCEPTION] Exception thrown:', err.message);
-                console.error('[UNCAUGHT_EXCEPTION] Stack:', err.stack);
+                console.error('[UNCAUGHT_EXCEPTION]', err);
                 process.exit(1);
             });
 
         } catch (error) {
-            console.error('[STARTUP_ERROR] Failed to start server');
-            console.error('[STARTUP_ERROR] Error:', error.message);
-            console.error('[STARTUP_ERROR] Stack:', error.stack);
+            console.error('[STARTUP_ERROR] Server failed to start');
+            console.error(error);
             process.exit(1);
         }
     };
 
-    console.log('[APP_INIT] Application initialization sequence started');
+    console.log('[APP_INIT] Running startServer()');
     startServer();
 
 } catch (initError) {
-    console.error('[INIT_FATAL_ERROR] Fatal initialization error:', initError.message);
+    console.error('[INIT_FATAL_ERROR] Initialization failed:', initError.message);
     console.error('[INIT_FATAL_ERROR] Stack:', initError.stack);
     process.exit(1);
 }

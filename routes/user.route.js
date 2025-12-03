@@ -3,31 +3,6 @@ const router = express.Router();
 const passport = require('passport');
 const userController = require('../controllers/user.controller');
 const { protect, authorize } = require('../middlewares/auth.middleware');
-// const {
-//     validateUserRegistration,
-//     validateUserLogin,
-//     validateUserUpdate,
-//     validatePasswordChange,
-//     validatePasswordReset,
-//     validatePasswordResetConfirm,
-//     validateEmailVerification,
-//     validateResendVerification,
-//     validateUserPreferences,
-//     validateUserId,
-//     validateUserQuery,
-//     validateUserRole,
-//     validateUserStatus,
-//     validateTwoFactorSetup,
-//     validateTwoFactorVerify,
-//     validateTwoFactorDisable,
-//     validateAvatarUpload,
-//     validateUserDelete,
-//     validateReferralCode,
-//     validateSubscriptionUpdate,
-//     validateIntegrationConnect,
-//     validateIntegrationDisconnect,
-//     validateBulkUserOperation
-// } = require('../private/user.validator');
 
 console.log('[USER_ROUTES] Initializing user routes');
 
@@ -51,14 +26,29 @@ router.post('/login', (req, res, next) => {
     next();
 }, userController.login);
 
-router.get('/auth/google', passport.authenticate('google', { scope: ['profile', 'email'] }));
+// OAuth - Google Routes
+router.get('/google', passport.authenticate('google', { scope: ['profile', 'email'] }));
 
-router.get('/auth/google/callback', passport.authenticate('google', { failureRedirect: '/auth/login', session: false }), userController.googleAuthCallback);
+router.get('/google/callback', passport.authenticate('google', { 
+    failureRedirect: `${process.env.FRONTEND_URL}/auth/login`, 
+    session: false 
+}), userController.googleAuthCallback, (req, res) => {
+    console.log('[USER_ROUTE] Redirecting to frontend /app after Google OAuth success');
+    res.redirect(`${process.env.FRONTEND_URL}/app`);
+});
 
-router.get('/auth/github', passport.authenticate('github', { scope: ['user:email'] }));
+// OAuth - GitHub Routes
+router.get('/github', passport.authenticate('github', { scope: ['user:email'] }));
 
-router.get('/auth/github/callback', passport.authenticate('github', { failureRedirect: '/auth/login', session: false }), userController.githubAuthCallback);
+router.get('/github/callback', passport.authenticate('github', { 
+    failureRedirect: `${process.env.FRONTEND_URL}/auth/login`, 
+    session: false 
+}), userController.githubAuthCallback, (req, res) => {
+    console.log('[USER_ROUTE] Redirecting to frontend /app after GitHub OAuth success');
+    res.redirect(`${process.env.FRONTEND_URL}/app`);
+});
 
+// Protected Routes
 router.get('/me', protect, (req, res, next) => {
     console.log('[USER_ROUTE] GET /me - Get Current User | User: ' + req.user?._id);
     next();
@@ -149,6 +139,7 @@ router.delete('/account/delete', protect, (req, res, next) => {
     next();
 }, userController.deleteAccount);
 
+// Admin Routes
 router.get('/', protect, authorize('admin', 'super_admin'), (req, res, next) => {
     console.log('[USER_ROUTE] GET / - Get All Users | User: ' + req.user?._id);
     next();

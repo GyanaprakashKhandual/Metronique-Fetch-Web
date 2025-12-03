@@ -1,0 +1,209 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "Fetch API Documentation",
+    "description": "Comprehensive API documentation for the Fetch application",
+    "version": "1.0.0",
+    "contact": {
+      "name": "API Support",
+      "email": "support@fetch.com"
+    }
+  },
+  "servers": [
+    {
+      "url": "http://localhost:5000",
+      "description": "Development Server"
+    },
+    {
+      "url": "https://api.fetch.metronique.com",
+      "description": "Production Server"
+    }
+  ],
+  "paths": {
+    "/": {
+      "get": {
+        "tags": ["Root"],
+        "summary": "Welcome message",
+        "description": "Returns welcome message and API information",
+        "responses": {
+          "200": {
+            "description": "Welcome message"
+          }
+        }
+      }
+    },
+    "/health": {
+      "get": {
+        "tags": ["Health"],
+        "summary": "Health check",
+        "description": "Returns health status of the API",
+        "responses": {
+          "200": {
+            "description": "Health status"
+          }
+        }
+      }
+    },
+    "/api/v1/users/register": {
+      "post": {
+        "tags": ["Users"],
+        "summary": "Register new user",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "firstName": { "type": "string" },
+                  "lastName": { "type": "string" },
+                  "email": { "type": "string" },
+                  "password": { "type": "string" },
+                  "confirmPassword": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "User registered successfully" },
+          "400": { "description": "Bad request" }
+        }
+      }
+    },
+    "/api/v1/users/login": {
+      "post": {
+        "tags": ["Users"],
+        "summary": "User login",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "email": { "type": "string" },
+                  "password": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Login successful" },
+          "401": { "description": "Invalid credentials" }
+        }
+      }
+    },
+    "/api/v1/users/me": {
+      "get": {
+        "tags": ["Users"],
+        "summary": "Get current user",
+        "security": [{ "BearerAuth": [] }],
+        "responses": {
+          "200": { "description": "Current user data" },
+          "401": { "description": "Unauthorized" }
+        }
+      }
+    },
+    "/api/v1/teams": {
+      "get": {
+        "tags": ["Teams"],
+        "summary": "Get user teams",
+        "security": [{ "BearerAuth": [] }],
+        "responses": {
+          "200": { "description": "List of teams" },
+          "401": { "description": "Unauthorized" }
+        }
+      },
+      "post": {
+        "tags": ["Teams"],
+        "summary": "Create new team",
+        "security": [{ "BearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": { "type": "string" },
+                  "description": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Team created" },
+          "400": { "description": "Bad request" }
+        }
+      }
+    },
+    "/api/v1/files/upload": {
+      "post": {
+        "tags": ["Files"],
+        "summary": "Upload single file",
+        "security": [{ "BearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "file": { "type": "string", "format": "binary" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "File uploaded successfully" },
+          "401": { "description": "Unauthorized" }
+        }
+      }
+    },
+    "/api/v1/files/upload-multiple": {
+      "post": {
+        "tags": ["Files"],
+        "summary": "Upload multiple files",
+        "security": [{ "BearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "files": { "type": "array", "items": { "type": "string", "format": "binary" } }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Files uploaded successfully" },
+          "401": { "description": "Unauthorized" }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "BearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "description": "JWT Authorization header using the Bearer scheme"
+      }
+    }
+  },
+  "tags": [
+    { "name": "Root", "description": "Root endpoint" },
+    { "name": "Health", "description": "Health check endpoint" },
+    { "name": "Users", "description": "User management endpoints" },
+    { "name": "Teams", "description": "Team management endpoints" },
+    { "name": "Files", "description": "File upload and management endpoints" }
+  ]
+}
