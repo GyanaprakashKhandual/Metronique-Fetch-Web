@@ -358,7 +358,7 @@ const googleAuthCallback = catchAsync(async (req, res) => {
     });
 
     console.log(`[USER_CONTROLLER] Google OAuth successful: ${user.email}`);
-    
+
     // Simple redirect to /app - tokens in httpOnly cookies
     const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
     res.redirect(`${frontendUrl}/app`);
@@ -409,7 +409,7 @@ const githubAuthCallback = catchAsync(async (req, res) => {
     });
 
     console.log(`[USER_CONTROLLER] GitHub OAuth successful: ${user.email}`);
-    
+
     // Simple redirect to /app - tokens in httpOnly cookies
     const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
     res.redirect(`${frontendUrl}/app`);
@@ -1192,7 +1192,7 @@ const generateReferralCode = catchAsync(async (req, res) => {
 const getReferralInfo = catchAsync(async (req, res) => {
     const { code } = req.params;
     const user = await User.findOne({ 'referral.code': code });
-    
+
     if (!user) {
         return res.status(404).json({
             success: false,
@@ -1230,7 +1230,7 @@ const updateSubscription = catchAsync(async (req, res) => {
 const updateUserRole = catchAsync(async (req, res) => {
     const { userId } = req.params;
     const { role } = req.body;
-    
+
     const user = await User.findByIdAndUpdate(
         userId,
         { role },
