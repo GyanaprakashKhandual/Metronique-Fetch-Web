@@ -27,9 +27,14 @@ const getMongoURI = () => {
     const env = process.env.NODE_ENV || 'development';
     const uri = databaseConfig[env];
 
+    console.log('[DB_CONFIG] Environment:', env);
+    console.log('[DB_CONFIG] MONGODB_URI_DEV env var:', process.env.MONGODB_URI_DEV ? 'SET' : 'NOT SET');
+    console.log('[DB_CONFIG] databaseConfig[env]:', uri ? 'SET' : 'NOT SET');
+
     if (!uri) {
         console.error(`MongoDB URI Missing for Environment: ${env}`);
         console.error('Available Environments:', Object.keys(databaseConfig).filter(k => k !== 'options'));
+        console.error('databaseConfig:', databaseConfig);
         process.exit(1);
     }
 

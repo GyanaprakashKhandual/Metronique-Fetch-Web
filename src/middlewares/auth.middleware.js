@@ -17,9 +17,12 @@ const protect = async (req, res, next) => {
         if (req.headers.authorization && req.headers.authorization.startsWith('Bearer ')) {
             token = req.headers.authorization.split(' ')[1];
             console.log(`[AUTH_PROTECT] TOKEN_SOURCE | Source: Authorization Header`);
+        } else if (req.cookies && req.cookies.accessToken) {
+            token = req.cookies.accessToken;
+            console.log(`[AUTH_PROTECT] TOKEN_SOURCE | Source: Cookies (accessToken)`);
         } else if (req.cookies && req.cookies.token) {
             token = req.cookies.token;
-            console.log(`[AUTH_PROTECT] TOKEN_SOURCE | Source: Cookies`);
+            console.log(`[AUTH_PROTECT] TOKEN_SOURCE | Source: Cookies (token)`);
         }
 
         if (!token) {
@@ -318,7 +321,7 @@ const authorizeProjectAccess = (accessLevelRequired = 'view') => {
     };
 };
 
-const refreshAccessToken = async (req, res, next) => {
+const refreshAccessTokenMiddleware = async (req, res, next) => {
     const startTime = Date.now();
 
     try {
@@ -408,5 +411,5 @@ module.exports = {
     authorize,
     authorizePermission,
     authorizeProjectAccess,
-    refreshAccessToken
+    refreshAccessToken: refreshAccessTokenMiddleware
 };

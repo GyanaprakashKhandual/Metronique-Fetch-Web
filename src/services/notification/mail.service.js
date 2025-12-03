@@ -35,18 +35,32 @@ const sendEmail = async (mailOptions) => {
     }
 };
 
-const sendVerificationEmail = async (to, name, link) => {
-    console.log('[Mail Service] Initiating verification email');
-    console.log('[Mail Service] Recipient:', to);
-    console.log('[Mail Service] Name:', name);
-
+const sendVerificationEmail = async (email, verificationLink, firstName) => {
     const mailOptions = {
-        to,
+        from: process.env.SMTP_FROM_EMAIL,
+        to: email,
         subject: 'Verify Your Email Address',
-        html: verificationTemplate(name, link),
+        html: `
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                <h2>Verify Your Email Address</h2>
+                <p>Hello ${firstName},</p>
+                <p>Thank you for signing up with Fetch. To complete your registration and access your account, please verify your email address by clicking the button below.</p>
+                
+                <a href="${verificationLink}" style="display: inline-block; padding: 12px 30px; background-color: #000; color: #fff; text-decoration: none; border-radius: 5px; margin: 20px 0;">
+                    Verify Email Address
+                </a>
+                
+                <p>If the button doesn't work, copy and paste this link into your browser:</p>
+                <p><a href="${verificationLink}">${verificationLink}</a></p>
+                
+                <p>This verification link will expire in 24 hours. If you did not create an account, please ignore this email.</p>
+                
+                <p>Need help? Contact our support team at support@metronique.com</p>
+            </div>
+        `
     };
 
-    return await sendEmail(mailOptions);
+    return transporter.sendMail(mailOptions);
 };
 
 const sendOnboardingEmail = async (to, name, link) => {

@@ -3,11 +3,11 @@ const jwt = require('jsonwebtoken');
 const jwtConfig = {
     secret: process.env.JWT_SECRET,
     refreshSecret: process.env.JWT_REFRESH_SECRET,
-    accessTokenExpiry: process.env.JWT_ACCESS_EXPIRY,
-    refreshTokenExpiry: process.env.JWT_REFRESH_EXPIRY,
+    accessTokenExpiry: process.env.JWT_ACCESS_EXPIRY || '15m',
+    refreshTokenExpiry: process.env.JWT_REFRESH_EXPIRY || '7d',
     algorithm: 'HS256',
-    issuer: process.env.JWT_ISSUER,
-    audience: process.env.JWT_AUDIENCE
+    issuer: process.env.JWT_ISSUER || 'fetch-app',
+    audience: process.env.JWT_AUDIENCE || 'fetch-users'
 };
 
 const validateConfig = () => {
@@ -24,16 +24,20 @@ const validateConfig = () => {
         process.exit(1);
     }
     console.log('JWT Configuration Validated Successfully');
+    console.log(`[JWT] Issuer: ${jwtConfig.issuer}`);
+    console.log(`[JWT] Audience: ${jwtConfig.audience}`);
 };
 
 const generateAccessToken = (payload) => {
     try {
-        const token = jwt.sign(payload, jwtConfig.secret, {
+        const signOptions = {
             expiresIn: jwtConfig.accessTokenExpiry,
             algorithm: jwtConfig.algorithm,
             issuer: jwtConfig.issuer,
             audience: jwtConfig.audience
-        });
+        };
+
+        const token = jwt.sign(payload, jwtConfig.secret, signOptions);
         console.log(`Access Token Generated for User: ${payload.id || payload.userId}`);
         return token;
     } catch (error) {
@@ -44,12 +48,14 @@ const generateAccessToken = (payload) => {
 
 const generateRefreshToken = (payload) => {
     try {
-        const token = jwt.sign(payload, jwtConfig.refreshSecret, {
+        const signOptions = {
             expiresIn: jwtConfig.refreshTokenExpiry,
             algorithm: jwtConfig.algorithm,
             issuer: jwtConfig.issuer,
             audience: jwtConfig.audience
-        });
+        };
+
+        const token = jwt.sign(payload, jwtConfig.refreshSecret, signOptions);
         console.log(`Refresh Token Generated for User: ${payload.id || payload.userId}`);
         return token;
     } catch (error) {
@@ -60,11 +66,13 @@ const generateRefreshToken = (payload) => {
 
 const verifyAccessToken = (token) => {
     try {
-        const decoded = jwt.verify(token, jwtConfig.secret, {
+        const verifyOptions = {
             algorithms: [jwtConfig.algorithm],
             issuer: jwtConfig.issuer,
             audience: jwtConfig.audience
-        });
+        };
+
+        const decoded = jwt.verify(token, jwtConfig.secret, verifyOptions);
         return decoded;
     } catch (error) {
         if (error.name === 'TokenExpiredError') {
@@ -80,11 +88,13 @@ const verifyAccessToken = (token) => {
 
 const verifyRefreshToken = (token) => {
     try {
-        const decoded = jwt.verify(token, jwtConfig.refreshSecret, {
+        const verifyOptions = {
             algorithms: [jwtConfig.algorithm],
             issuer: jwtConfig.issuer,
             audience: jwtConfig.audience
-        });
+        };
+
+        const decoded = jwt.verify(token, jwtConfig.refreshSecret, verifyOptions);
         return decoded;
     } catch (error) {
         if (error.name === 'TokenExpiredError') {

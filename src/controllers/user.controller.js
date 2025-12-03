@@ -1,18 +1,16 @@
 const User = require('../models/user.model');
 const AuditLog = require('../models/audit.model');
-const TeamMember = require('../models/team.member.model');
+const Team = require('../models/team.model')
 const crypto = require('crypto');
 const { generateTokenPair } = require('../configs/jwt.config');
-const logger = require('../utils/logger.util');
 const { catchAsync } = require('../utils/error.util');
 const emailService = require('../services/notification/mail.service');
 
 const sendEmailVerificationLink = catchAsync(async (req, res) => {
     const { email } = req.body;
-    console.log(`[USER_CONTROLLER] Send email verification link initiated for: ${email}`);
+    console.log(`[AUTH] Email verification requested: ${email}`);
 
     if (!email) {
-        console.warn(`[USER_CONTROLLER] Send verification link failed: Email missing`);
         return res.status(400).json({
             success: false,
             message: 'Email is required',
@@ -22,7 +20,6 @@ const sendEmailVerificationLink = catchAsync(async (req, res) => {
 
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
-        console.warn(`[USER_CONTROLLER] Send verification link failed: Invalid email format - ${email}`);
         return res.status(400).json({
             success: false,
             message: 'Invalid email format',
@@ -33,7 +30,7 @@ const sendEmailVerificationLink = catchAsync(async (req, res) => {
     let user = await User.findOne({ email: email.toLowerCase() });
 
     if (!user) {
-        console.log(`[USER_CONTROLLER] Creating new user for email verification: ${email}`);
+        console.log(`[AUTH] Creating new user: ${email}`);
         user = new User({
             email: email.toLowerCase(),
             isEmailVerified: false
@@ -45,13 +42,12 @@ const sendEmailVerificationLink = catchAsync(async (req, res) => {
 
     user.emailVerificationToken = hashedToken;
     user.emailVerificationExpires = new Date(Date.now() + 24 * 60 * 60 * 1000);
-
     await user.save();
 
     try {
-        const verificationLink = `${process.env.FRONTEND_URL}/auth/verify-email?token=${verificationToken}&email=${encodeURIComponent(email)}`;
+        const verificationLink = `${process.env.FRONTEND_URL}/auth/verify-email`;
         await emailService.sendVerificationEmail(email, verificationLink, user.firstName || 'User');
-        console.log(`[USER_CONTROLLER] Verification email sent successfully: ${email}`);
+        console.log(`[AUTH] Verification email sent: ${email}`);
 
         return res.json({
             success: true,
@@ -62,7 +58,7 @@ const sendEmailVerificationLink = catchAsync(async (req, res) => {
             }
         });
     } catch (emailError) {
-        console.error(`[USER_CONTROLLER] Verification email failed: ${email} - ${emailError.message}`);
+        console.error(`[AUTH] Email send failed: ${email}`, emailError);
         user.emailVerificationToken = null;
         user.emailVerificationExpires = null;
         await user.save();
@@ -77,10 +73,11 @@ const sendEmailVerificationLink = catchAsync(async (req, res) => {
 
 const verifyEmailToken = catchAsync(async (req, res) => {
     const { token, email } = req.body;
-    console.log(`[USER_CONTROLLER] Email verification initiated for: ${email}`);
+    console.log(`[AUTH] Email verification attempt: ${email}`);
+    console.log(`[AUTH] Token received from frontend: ${token}`);
+    console.log(`[AUTH] Token length: ${token?.length}`);
 
     if (!token || !email) {
-        console.warn(`[USER_CONTROLLER] Email verification failed: Missing required fields`);
         return res.status(400).json({
             success: false,
             message: 'Token and email are required',
@@ -91,7 +88,6 @@ const verifyEmailToken = catchAsync(async (req, res) => {
     const user = await User.findOne({ email: email.toLowerCase() });
 
     if (!user) {
-        console.warn(`[USER_CONTROLLER] Email verification failed: User not found - ${email}`);
         return res.status(404).json({
             success: false,
             message: 'User not found',
@@ -99,8 +95,11 @@ const verifyEmailToken = catchAsync(async (req, res) => {
         });
     }
 
+    console.log(`[AUTH] User found: ${user.email}`);
+    console.log(`[AUTH] Stored token hash: ${user.emailVerificationToken}`);
+    console.log(`[AUTH] Stored token hash length: ${user.emailVerificationToken?.length}`);
+
     if (!user.emailVerificationToken || !user.emailVerificationExpires) {
-        console.warn(`[USER_CONTROLLER] Email verification failed: No verification data - ${email}`);
         return res.status(400).json({
             success: false,
             message: 'Invalid or expired verification link',
@@ -109,7 +108,6 @@ const verifyEmailToken = catchAsync(async (req, res) => {
     }
 
     if (new Date() > user.emailVerificationExpires) {
-        console.warn(`[USER_CONTROLLER] Email verification failed: Token expired - ${email}`);
         user.emailVerificationToken = null;
         user.emailVerificationExpires = null;
         await user.save();
@@ -121,9 +119,13 @@ const verifyEmailToken = catchAsync(async (req, res) => {
     }
 
     const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
+    console.log(`[AUTH] Computed hash from token: ${hashedToken}`);
+    console.log(`[AUTH] Hashes match: ${hashedToken === user.emailVerificationToken}`);
 
     if (hashedToken !== user.emailVerificationToken) {
-        console.warn(`[USER_CONTROLLER] Email verification failed: Invalid token - ${email}`);
+        console.error(`[AUTH] Token mismatch!`);
+        console.error(`[AUTH] Expected: ${user.emailVerificationToken}`);
+        console.error(`[AUTH] Got:      ${hashedToken}`);
         return res.status(400).json({
             success: false,
             message: 'Invalid verification link',
@@ -135,13 +137,19 @@ const verifyEmailToken = catchAsync(async (req, res) => {
     user.emailVerificationExpires = null;
     user.isEmailVerified = true;
     user.lastLogin = new Date();
-
     await user.save();
 
     const { accessToken, refreshToken } = generateTokenPair({
         id: user._id,
         email: user.email,
         role: user.role
+    });
+
+    res.cookie('accessToken', accessToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        maxAge: 15 * 60 * 1000
     });
 
     res.cookie('refreshToken', refreshToken, {
@@ -165,7 +173,7 @@ const verifyEmailToken = catchAsync(async (req, res) => {
         requestId: req.id
     });
 
-    console.log(`[USER_CONTROLLER] Email verification successful: ${email}`);
+    console.log(`[AUTH] Email verified successfully: ${email}`);
 
     return res.json({
         success: true,
@@ -178,20 +186,16 @@ const verifyEmailToken = catchAsync(async (req, res) => {
                 lastName: user.lastName,
                 avatar: user.avatar,
                 isEmailVerified: user.isEmailVerified
-            },
-            accessToken,
-            refreshToken,
-            expiresIn: '15m'
+            }
         }
     });
 });
 
 const register = catchAsync(async (req, res) => {
     const { firstName, lastName, email, password, confirmPassword, username } = req.body;
-    console.log(`[USER_CONTROLLER] User registration initiated: ${email}`);
+    console.log(`[AUTH] Registration attempt: ${email}`);
 
     if (!firstName || !lastName || !email || !password || !confirmPassword) {
-        console.warn(`[USER_CONTROLLER] Registration failed: Missing required fields`);
         return res.status(400).json({
             success: false,
             message: 'All required fields must be provided',
@@ -200,7 +204,6 @@ const register = catchAsync(async (req, res) => {
     }
 
     if (password !== confirmPassword) {
-        console.warn(`[USER_CONTROLLER] Registration failed: Passwords do not match - ${email}`);
         return res.status(400).json({
             success: false,
             message: 'Passwords do not match',
@@ -209,7 +212,6 @@ const register = catchAsync(async (req, res) => {
     }
 
     if (password.length < 8) {
-        console.warn(`[USER_CONTROLLER] Registration failed: Password too short - ${email}`);
         return res.status(400).json({
             success: false,
             message: 'Password must be at least 8 characters',
@@ -225,7 +227,6 @@ const register = catchAsync(async (req, res) => {
     });
 
     if (existingUser) {
-        console.warn(`[USER_CONTROLLER] Registration failed: User already exists - ${email}`);
         return res.status(409).json({
             success: false,
             message: 'Email or username already registered',
@@ -255,21 +256,27 @@ const register = catchAsync(async (req, res) => {
 
     newUser.emailVerificationToken = hashedToken;
     newUser.emailVerificationExpires = new Date(Date.now() + 24 * 60 * 60 * 1000);
-
     await newUser.save();
 
     try {
-        const verificationLink = `${process.env.FRONTEND_URL}/auth/verify-email?token=${verificationToken}&email=${encodeURIComponent(email)}`;
+        const verificationLink = `${process.env.FRONTEND_URL}/auth/verify-email`;
         await emailService.sendVerificationEmail(email, verificationLink, firstName);
-        console.log(`[USER_CONTROLLER] Registration verification email sent: ${email}`);
+        console.log(`[AUTH] Verification email sent to new user: ${email}`);
     } catch (emailError) {
-        console.error(`[USER_CONTROLLER] Registration verification email failed: ${email} - ${emailError.message}`);
+        console.error(`[AUTH] Failed to send verification email: ${email}`, emailError);
     }
 
     const { accessToken, refreshToken } = generateTokenPair({
         id: newUser._id,
         email: newUser.email,
         role: newUser.role
+    });
+
+    res.cookie('accessToken', accessToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        maxAge: 15 * 60 * 1000
     });
 
     res.cookie('refreshToken', refreshToken, {
@@ -293,7 +300,7 @@ const register = catchAsync(async (req, res) => {
         requestId: req.id
     });
 
-    console.log(`[USER_CONTROLLER] User registered successfully: ${email}`);
+    console.log(`[AUTH] User registered successfully: ${email}`);
 
     return res.status(201).json({
         success: true,
@@ -304,21 +311,129 @@ const register = catchAsync(async (req, res) => {
                 email: newUser.email,
                 firstName: newUser.firstName,
                 lastName: newUser.lastName
-            },
-            accessToken,
-            refreshToken,
-            expiresIn: '15m'
+            }
         }
     });
 });
-// In your user.controller.js - Replace googleAuthCallback and githubAuthCallback
+
+const login = catchAsync(async (req, res) => {
+    const { email, password } = req.body;
+    console.log(`[AUTH] Login attempt: ${email}`);
+
+    if (!email || !password) {
+        return res.status(400).json({
+            success: false,
+            message: 'Email and password are required',
+            code: 'MISSING_FIELDS'
+        });
+    }
+
+    const user = await User.findOne({ email: email.toLowerCase() });
+
+    if (!user) {
+        return res.status(401).json({
+            success: false,
+            message: 'Invalid credentials',
+            code: 'INVALID_CREDENTIALS'
+        });
+    }
+
+    if (!user.password) {
+        return res.status(400).json({
+            success: false,
+            message: 'Please login with your OAuth provider',
+            code: 'OAUTH_ACCOUNT'
+        });
+    }
+
+    const isPasswordMatch = await user.comparePassword(password);
+
+    if (!isPasswordMatch) {
+        return res.status(401).json({
+            success: false,
+            message: 'Invalid credentials',
+            code: 'INVALID_CREDENTIALS'
+        });
+    }
+
+    if (!user.isActive) {
+        return res.status(403).json({
+            success: false,
+            message: 'Account is inactive',
+            code: 'ACCOUNT_INACTIVE'
+        });
+    }
+
+    if (user.isSuspended) {
+        return res.status(403).json({
+            success: false,
+            message: 'Account is suspended',
+            code: 'ACCOUNT_SUSPENDED'
+        });
+    }
+
+    user.lastLogin = new Date();
+    await user.save();
+
+    const { accessToken, refreshToken } = generateTokenPair({
+        id: user._id,
+        email: user.email,
+        role: user.role
+    });
+
+    res.cookie('accessToken', accessToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        maxAge: 15 * 60 * 1000
+    });
+
+    res.cookie('refreshToken', refreshToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        maxAge: 7 * 24 * 60 * 60 * 1000
+    });
+
+    await AuditLog.create({
+        user: user._id,
+        action: 'user_login',
+        actionCategory: 'authentication',
+        entityType: 'user',
+        entityId: user._id,
+        status: 'success',
+        severity: 'info',
+        details: { description: 'Login via email/password' },
+        ipAddress: req.ip,
+        userAgent: req.get('user-agent'),
+        requestId: req.id
+    });
+
+    console.log(`[AUTH] Login successful: ${email}`);
+
+    return res.json({
+        success: true,
+        message: 'Login successful',
+        data: {
+            user: {
+                id: user._id,
+                email: user.email,
+                firstName: user.firstName,
+                lastName: user.lastName,
+                avatar: user.avatar,
+                role: user.role,
+                isEmailVerified: user.isEmailVerified
+            }
+        }
+    });
+});
 
 const googleAuthCallback = catchAsync(async (req, res) => {
     const user = req.user;
-    console.log(`[USER_CONTROLLER] Google OAuth callback for: ${user?.email}`);
+    console.log(`[AUTH] Google OAuth callback: ${user?.email}`);
 
     if (!user) {
-        console.warn(`[USER_CONTROLLER] Google OAuth failed: No user object`);
+        console.warn(`[AUTH] Google OAuth failed: No user object`);
         return res.redirect(`${process.env.FRONTEND_URL}/auth?error=authentication_failed`);
     }
 
@@ -328,19 +443,18 @@ const googleAuthCallback = catchAsync(async (req, res) => {
         role: user.role
     });
 
-    // Set tokens in secure httpOnly cookies
     res.cookie('accessToken', accessToken, {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
         sameSite: 'lax',
-        maxAge: 15 * 60 * 1000 // 15 minutes
+        maxAge: 15 * 60 * 1000
     });
 
     res.cookie('refreshToken', refreshToken, {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
         sameSite: 'lax',
-        maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
+        maxAge: 7 * 24 * 60 * 60 * 1000
     });
 
     await AuditLog.create({
@@ -357,19 +471,18 @@ const googleAuthCallback = catchAsync(async (req, res) => {
         requestId: req.id
     });
 
-    console.log(`[USER_CONTROLLER] Google OAuth successful: ${user.email}`);
+    console.log(`[AUTH] Google OAuth successful: ${user.email}`);
 
-    // Simple redirect to /app - tokens in httpOnly cookies
     const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
     res.redirect(`${frontendUrl}/app`);
 });
 
 const githubAuthCallback = catchAsync(async (req, res) => {
     const user = req.user;
-    console.log(`[USER_CONTROLLER] GitHub OAuth callback for: ${user?.email}`);
+    console.log(`[AUTH] GitHub OAuth callback: ${user?.email}`);
 
     if (!user) {
-        console.warn(`[USER_CONTROLLER] GitHub OAuth failed: No user object`);
+        console.warn(`[AUTH] GitHub OAuth failed: No user object`);
         return res.redirect(`${process.env.FRONTEND_URL}/auth?error=authentication_failed`);
     }
 
@@ -379,19 +492,18 @@ const githubAuthCallback = catchAsync(async (req, res) => {
         role: user.role
     });
 
-    // Set tokens in secure httpOnly cookies
     res.cookie('accessToken', accessToken, {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
         sameSite: 'lax',
-        maxAge: 15 * 60 * 1000 // 15 minutes
+        maxAge: 15 * 60 * 1000
     });
 
     res.cookie('refreshToken', refreshToken, {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
         sameSite: 'lax',
-        maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
+        maxAge: 7 * 24 * 60 * 60 * 1000
     });
 
     await AuditLog.create({
@@ -408,30 +520,111 @@ const githubAuthCallback = catchAsync(async (req, res) => {
         requestId: req.id
     });
 
-    console.log(`[USER_CONTROLLER] GitHub OAuth successful: ${user.email}`);
+    console.log(`[AUTH] GitHub OAuth successful: ${user.email}`);
 
-    // Simple redirect to /app - tokens in httpOnly cookies
     const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
     res.redirect(`${frontendUrl}/app`);
 });
 
+const logout = catchAsync(async (req, res) => {
+    console.log(`[AUTH] Logout initiated: ${req.user?.email || 'Unknown'}`);
 
-const getCurrentUser = catchAsync(async (req, res) => {
-    console.log(`[USER_CONTROLLER] Fetching current user: ${req.user._id}`);
+    res.clearCookie('accessToken');
+    res.clearCookie('refreshToken');
 
-    const user = await User.findById(req.user._id)
-        .select('-password -twoFactorSecret -backupCodes -emailVerificationToken -passwordResetToken')
-        .populate('ownedTeams', 'name description')
-        .populate({
-            path: 'teamMemberships',
-            populate: {
-                path: 'team',
-                select: 'name description'
-            }
+    if (req.user?._id) {
+        await AuditLog.create({
+            user: req.user._id,
+            action: 'user_logout',
+            actionCategory: 'authentication',
+            entityType: 'user',
+            entityId: req.user._id,
+            status: 'success',
+            severity: 'info',
+            details: { description: 'User logged out' },
+            ipAddress: req.ip,
+            userAgent: req.get('user-agent'),
+            requestId: req.id
+        });
+    }
+
+    console.log(`[AUTH] Logout successful`);
+
+    return res.json({
+        success: true,
+        message: 'Logged out successfully'
+    });
+});
+
+const refreshAccessToken = catchAsync(async (req, res) => {
+    const refreshToken = req.cookies.refreshToken;
+    console.log(`[AUTH] Access token refresh requested`);
+
+    if (!refreshToken) {
+        return res.status(401).json({
+            success: false,
+            message: 'Refresh token required',
+            code: 'REFRESH_TOKEN_REQUIRED'
+        });
+    }
+
+    try {
+        const jwt = require('jsonwebtoken');
+        const decoded = jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET);
+
+        const user = await User.findById(decoded.id);
+
+        if (!user || !user.isActive) {
+            return res.status(401).json({
+                success: false,
+                message: 'Invalid refresh token',
+                code: 'INVALID_REFRESH_TOKEN'
+            });
+        }
+
+        const { accessToken, refreshToken: newRefreshToken } = generateTokenPair({
+            id: user._id,
+            email: user.email,
+            role: user.role
         });
 
+        res.cookie('accessToken', accessToken, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: 'lax',
+            maxAge: 15 * 60 * 1000
+        });
+
+        res.cookie('refreshToken', newRefreshToken, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: 'lax',
+            maxAge: 7 * 24 * 60 * 60 * 1000
+        });
+
+        console.log(`[AUTH] Access token refreshed: ${user.email}`);
+
+        return res.json({
+            success: true,
+            message: 'Token refreshed successfully'
+        });
+    } catch (error) {
+        console.error(`[AUTH] Token refresh failed:`, error);
+        return res.status(401).json({
+            success: false,
+            message: 'Invalid or expired refresh token',
+            code: 'INVALID_REFRESH_TOKEN'
+        });
+    }
+});
+
+const getCurrentUser = catchAsync(async (req, res) => {
+    console.log(`[USER] Fetching current user: ${req.user._id}`);
+
+    const user = await User.findById(req.user._id)
+        .select('-password -twoFactorSecret -backupCodes -emailVerificationToken -passwordResetToken');
+
     if (!user) {
-        console.warn(`[USER_CONTROLLER] Current user not found: ${req.user._id}`);
         return res.status(404).json({
             success: false,
             message: 'User not found',
@@ -439,7 +632,7 @@ const getCurrentUser = catchAsync(async (req, res) => {
         });
     }
 
-    console.log(`[USER_CONTROLLER] Current user fetched: ${user.email}`);
+    console.log(`[USER] Current user fetched: ${user.email}`);
 
     return res.json({
         success: true,
@@ -449,7 +642,7 @@ const getCurrentUser = catchAsync(async (req, res) => {
 
 const updateProfile = catchAsync(async (req, res) => {
     const { firstName, lastName, bio, phone, timezone, language } = req.body;
-    console.log(`[USER_CONTROLLER] Updating profile for user: ${req.user._id}`);
+    console.log(`[USER] Updating profile: ${req.user._id}`);
 
     const updateData = {};
 
@@ -480,7 +673,7 @@ const updateProfile = catchAsync(async (req, res) => {
         requestId: req.id
     });
 
-    console.log(`[USER_CONTROLLER] Profile updated: ${user.email}`);
+    console.log(`[USER] Profile updated: ${user.email}`);
 
     return res.json({
         success: true,
@@ -491,10 +684,9 @@ const updateProfile = catchAsync(async (req, res) => {
 
 const changePassword = catchAsync(async (req, res) => {
     const { currentPassword, newPassword, confirmPassword } = req.body;
-    console.log(`[USER_CONTROLLER] Password change initiated for user: ${req.user._id}`);
+    console.log(`[USER] Password change initiated: ${req.user._id}`);
 
     if (!currentPassword || !newPassword || !confirmPassword) {
-        console.warn(`[USER_CONTROLLER] Password change failed: Missing fields`);
         return res.status(400).json({
             success: false,
             message: 'All password fields are required',
@@ -503,7 +695,6 @@ const changePassword = catchAsync(async (req, res) => {
     }
 
     if (newPassword !== confirmPassword) {
-        console.warn(`[USER_CONTROLLER] Password change failed: Passwords do not match`);
         return res.status(400).json({
             success: false,
             message: 'New passwords do not match',
@@ -512,7 +703,6 @@ const changePassword = catchAsync(async (req, res) => {
     }
 
     if (newPassword.length < 8) {
-        console.warn(`[USER_CONTROLLER] Password change failed: Password too short`);
         return res.status(400).json({
             success: false,
             message: 'Password must be at least 8 characters',
@@ -523,7 +713,6 @@ const changePassword = catchAsync(async (req, res) => {
     const user = await User.findById(req.user._id);
 
     if (!user.password) {
-        console.warn(`[USER_CONTROLLER] Password change failed: OAuth account - ${user.email}`);
         return res.status(400).json({
             success: false,
             message: 'Cannot change password for OAuth accounts',
@@ -534,7 +723,6 @@ const changePassword = catchAsync(async (req, res) => {
     const isPasswordMatch = await user.comparePassword(currentPassword);
 
     if (!isPasswordMatch) {
-        console.warn(`[USER_CONTROLLER] Password change failed: Incorrect current password - ${user.email}`);
         return res.status(401).json({
             success: false,
             message: 'Current password is incorrect',
@@ -559,7 +747,7 @@ const changePassword = catchAsync(async (req, res) => {
         requestId: req.id
     });
 
-    console.log(`[USER_CONTROLLER] Password changed successfully: ${user.email}`);
+    console.log(`[USER] Password changed: ${user.email}`);
 
     return res.json({
         success: true,
@@ -569,10 +757,9 @@ const changePassword = catchAsync(async (req, res) => {
 
 const forgotPassword = catchAsync(async (req, res) => {
     const { email } = req.body;
-    console.log(`[USER_CONTROLLER] Forgot password initiated for: ${email}`);
+    console.log(`[AUTH] Password reset requested: ${email}`);
 
     if (!email) {
-        console.warn(`[USER_CONTROLLER] Forgot password failed: Email missing`);
         return res.status(400).json({
             success: false,
             message: 'Email is required',
@@ -583,7 +770,6 @@ const forgotPassword = catchAsync(async (req, res) => {
     const user = await User.findOne({ email: email.toLowerCase() });
 
     if (!user) {
-        console.log(`[USER_CONTROLLER] Forgot password: User not found - ${email}`);
         return res.json({
             success: true,
             message: 'If user exists, password reset link sent to email'
@@ -591,7 +777,6 @@ const forgotPassword = catchAsync(async (req, res) => {
     }
 
     if (!user.password) {
-        console.warn(`[USER_CONTROLLER] Forgot password failed: OAuth account - ${email}`);
         return res.status(400).json({
             success: false,
             message: 'Password reset not available for OAuth accounts',
@@ -604,20 +789,19 @@ const forgotPassword = catchAsync(async (req, res) => {
 
     user.passwordResetToken = hashedToken;
     user.passwordResetExpires = new Date(Date.now() + 60 * 60 * 1000);
-
     await user.save();
 
     try {
         const resetLink = `${process.env.FRONTEND_URL}/auth/reset-password?token=${resetToken}&email=${encodeURIComponent(email)}`;
         await emailService.sendPasswordResetEmail(email, resetLink, user.firstName);
-        console.log(`[USER_CONTROLLER] Password reset link sent: ${email}`);
+        console.log(`[AUTH] Password reset link sent: ${email}`);
 
         return res.json({
             success: true,
             message: 'Password reset link sent to your email'
         });
     } catch (emailError) {
-        console.error(`[USER_CONTROLLER] Password reset email failed: ${email} - ${emailError.message}`);
+        console.error(`[AUTH] Password reset email failed: ${email}`, emailError);
         user.passwordResetToken = null;
         user.passwordResetExpires = null;
         await user.save();
@@ -632,10 +816,9 @@ const forgotPassword = catchAsync(async (req, res) => {
 
 const resetPassword = catchAsync(async (req, res) => {
     const { token, email, password, confirmPassword } = req.body;
-    console.log(`[USER_CONTROLLER] Password reset initiated for: ${email}`);
+    console.log(`[AUTH] Password reset attempt: ${email}`);
 
     if (!token || !email || !password || !confirmPassword) {
-        console.warn(`[USER_CONTROLLER] Password reset failed: Missing fields`);
         return res.status(400).json({
             success: false,
             message: 'All fields are required',
@@ -644,7 +827,6 @@ const resetPassword = catchAsync(async (req, res) => {
     }
 
     if (password !== confirmPassword) {
-        console.warn(`[USER_CONTROLLER] Password reset failed: Passwords do not match`);
         return res.status(400).json({
             success: false,
             message: 'Passwords do not match',
@@ -653,7 +835,6 @@ const resetPassword = catchAsync(async (req, res) => {
     }
 
     if (password.length < 8) {
-        console.warn(`[USER_CONTROLLER] Password reset failed: Password too short`);
         return res.status(400).json({
             success: false,
             message: 'Password must be at least 8 characters',
@@ -670,7 +851,6 @@ const resetPassword = catchAsync(async (req, res) => {
     });
 
     if (!user) {
-        console.warn(`[USER_CONTROLLER] Password reset failed: Invalid or expired token - ${email}`);
         return res.status(400).json({
             success: false,
             message: 'Invalid or expired reset token',
@@ -682,7 +862,6 @@ const resetPassword = catchAsync(async (req, res) => {
     user.passwordResetToken = null;
     user.passwordResetExpires = null;
     user.passwordChangedAt = new Date();
-
     await user.save();
 
     await AuditLog.create({
@@ -698,7 +877,7 @@ const resetPassword = catchAsync(async (req, res) => {
         requestId: req.id
     });
 
-    console.log(`[USER_CONTROLLER] Password reset successful: ${user.email}`);
+    console.log(`[AUTH] Password reset successful: ${user.email}`);
 
     return res.json({
         success: true,
@@ -706,179 +885,11 @@ const resetPassword = catchAsync(async (req, res) => {
     });
 });
 
-const updatePreferences = catchAsync(async (req, res) => {
-    const { preferences } = req.body;
-    console.log(`[USER_CONTROLLER] Updating preferences for user: ${req.user._id}`);
-
-    const user = await User.findByIdAndUpdate(
-        req.user._id,
-        { preferences },
-        { new: true, runValidators: true }
-    ).select('-password -twoFactorSecret -backupCodes');
-
-    await AuditLog.create({
-        user: req.user._id,
-        action: 'user_updated',
-        actionCategory: 'user',
-        entityType: 'user',
-        entityId: user._id,
-        status: 'success',
-        severity: 'info',
-        requestId: req.id
-    });
-
-    console.log(`[USER_CONTROLLER] Preferences updated: ${user.email}`);
-
-    return res.json({
-        success: true,
-        message: 'Preferences updated successfully',
-        data: { user }
-    });
-});
-
-const getAllUsers = catchAsync(async (req, res) => {
-    const { page = 1, limit = 10, search, role, status } = req.query;
-    console.log(`[USER_CONTROLLER] Fetching all users - Page: ${page}, Limit: ${limit}`);
-
-    const query = { isDeleted: false };
-
-    if (search) {
-        query.$or = [
-            { firstName: { $regex: search, $options: 'i' } },
-            { lastName: { $regex: search, $options: 'i' } },
-            { email: { $regex: search, $options: 'i' } }
-        ];
-    }
-
-    if (role) {
-        query.role = role;
-    }
-
-    if (status) {
-        if (status === 'active') query.isActive = true;
-        if (status === 'inactive') query.isActive = false;
-        if (status === 'suspended') query.isSuspended = true;
-    }
-
-    const skip = (page - 1) * limit;
-
-    const users = await User.find(query)
-        .select('-password -twoFactorSecret -backupCodes -emailVerificationToken -passwordResetToken')
-        .skip(skip)
-        .limit(parseInt(limit))
-        .sort({ createdAt: -1 });
-
-    const total = await User.countDocuments(query);
-
-    console.log(`[USER_CONTROLLER] Users fetched: ${users.length} of ${total}`);
-
-    return res.json({
-        success: true,
-        data: {
-            users,
-            pagination: {
-                total,
-                page: parseInt(page),
-                limit: parseInt(limit),
-                pages: Math.ceil(total / limit)
-            }
-        }
-    });
-});
-
-const getUserById = catchAsync(async (req, res) => {
-    const { userId } = req.params;
-    console.log(`[USER_CONTROLLER] Fetching user: ${userId}`);
-
-    const user = await User.findById(userId)
-        .select('-password -twoFactorSecret -backupCodes -emailVerificationToken -passwordResetToken')
-        .populate('ownedTeams', 'name description')
-        .populate({
-            path: 'teamMemberships',
-            populate: {
-                path: 'team',
-                select: 'name description'
-            }
-        });
-
-    if (!user) {
-        console.warn(`[USER_CONTROLLER] User not found: ${userId}`);
-        return res.status(404).json({
-            success: false,
-            message: 'User not found',
-            code: 'USER_NOT_FOUND'
-        });
-    }
-
-    console.log(`[USER_CONTROLLER] User fetched: ${user.email}`);
-
-    return res.json({
-        success: true,
-        data: { user }
-    });
-});
-
-const updateUserStatus = catchAsync(async (req, res) => {
-    const { userId } = req.params;
-    const { status, reason } = req.body;
-    console.log(`[USER_CONTROLLER] Updating user status: ${userId} to ${status}`);
-
-    const user = await User.findById(userId);
-
-    if (!user) {
-        console.warn(`[USER_CONTROLLER] User not found for status update: ${userId}`);
-        return res.status(404).json({
-            success: false,
-            message: 'User not found',
-            code: 'USER_NOT_FOUND'
-        });
-    }
-
-    if (status === 'suspended') {
-        user.isSuspended = true;
-        user.suspensionReason = reason;
-        user.suspendedAt = new Date();
-        user.suspendedBy = req.user._id;
-    } else if (status === 'active') {
-        user.isActive = true;
-        user.isSuspended = false;
-        user.suspensionReason = null;
-    } else if (status === 'inactive') {
-        user.isActive = false;
-    }
-
-    await user.save();
-
-    await AuditLog.create({
-        user: req.user._id,
-        action: `user_${status}`,
-        actionCategory: 'user',
-        entityType: 'user',
-        entityId: user._id,
-        status: 'success',
-        severity: status === 'suspended' ? 'warning' : 'info',
-        details: { reason, newStatus: status },
-        affectedUsers: [user._id],
-        ipAddress: req.ip,
-        userAgent: req.get('user-agent'),
-        requestId: req.id
-    });
-
-    console.log(`[USER_CONTROLLER] User status updated: ${user.email} - ${status}`);
-
-    return res.json({
-        success: true,
-        message: `User status updated to ${status}`,
-        data: { user }
-    });
-});
-
 const deleteAccount = catchAsync(async (req, res) => {
     const { password } = req.body;
-    console.log(`[USER_CONTROLLER] Account deletion initiated: ${req.user._id}`);
+    console.log(`[USER] Account deletion initiated: ${req.user._id}`);
 
     if (!password) {
-        console.warn(`[USER_CONTROLLER] Account deletion failed: Password missing`);
         return res.status(400).json({
             success: false,
             message: 'Password is required to delete account',
@@ -889,7 +900,6 @@ const deleteAccount = catchAsync(async (req, res) => {
     const user = await User.findById(req.user._id);
 
     if (!user.password) {
-        console.warn(`[USER_CONTROLLER] Account deletion failed: OAuth account - ${user.email}`);
         return res.status(400).json({
             success: false,
             message: 'Cannot delete OAuth accounts this way',
@@ -900,7 +910,6 @@ const deleteAccount = catchAsync(async (req, res) => {
     const isPasswordMatch = await user.comparePassword(password);
 
     if (!isPasswordMatch) {
-        console.warn(`[USER_CONTROLLER] Account deletion failed: Incorrect password - ${user.email}`);
         return res.status(401).json({
             success: false,
             message: 'Incorrect password',
@@ -913,9 +922,9 @@ const deleteAccount = catchAsync(async (req, res) => {
     user.deletedBy = req.user._id;
     user.email = `deleted-${Date.now()}-${user.email}`;
     user.isActive = false;
-
     await user.save();
 
+    res.clearCookie('accessToken');
     res.clearCookie('refreshToken');
 
     await AuditLog.create({
@@ -932,7 +941,7 @@ const deleteAccount = catchAsync(async (req, res) => {
         requestId: req.id
     });
 
-    console.log(`[USER_CONTROLLER] Account deleted successfully: ${user.email}`);
+    console.log(`[USER] Account deleted: ${user.email}`);
 
     return res.json({
         success: true,
@@ -940,42 +949,28 @@ const deleteAccount = catchAsync(async (req, res) => {
     });
 });
 
-const updateAvatar = catchAsync(async (req, res) => {
-    const { url, publicId } = req.body;
-    console.log(`[USER_CONTROLLER] Avatar update initiated: ${req.user._id}`);
+const getAllUsers = catchAsync(async (req, res) => {
+    console.log(`[USER] Fetching all users: ${req.user._id}`);
 
-    if (!url) {
-        console.warn(`[USER_CONTROLLER] Avatar update failed: URL missing`);
-        return res.status(400).json({
-            success: false,
-            message: 'Avatar URL is required',
-            code: 'URL_REQUIRED'
-        });
-    }
+    const users = await User.find()
+        .select('-password -twoFactorSecret -backupCodes -emailVerificationToken -passwordResetToken');
 
-    const user = await User.findByIdAndUpdate(
-        req.user._id,
-        { avatar: { url, publicId } },
-        { new: true, runValidators: true }
-    ).select('-password -twoFactorSecret -backupCodes');
-
-    console.log(`[USER_CONTROLLER] Avatar updated: ${user.email}`);
+    console.log(`[USER] All users fetched: ${users.length}`);
 
     return res.json({
         success: true,
-        message: 'Avatar updated successfully',
-        data: { user }
+        data: { users, total: users.length }
     });
 });
 
-const getAnalytics = catchAsync(async (req, res) => {
-    const userId = req.user._id;
-    console.log(`[USER_CONTROLLER] Fetching analytics for user: ${userId}`);
+const getUserById = catchAsync(async (req, res) => {
+    const { userId } = req.params;
+    console.log(`[USER] Fetching user by ID: ${userId}`);
 
-    const user = await User.findById(userId);
+    const user = await User.findById(userId)
+        .select('-password -twoFactorSecret -backupCodes -emailVerificationToken -passwordResetToken');
 
     if (!user) {
-        console.warn(`[USER_CONTROLLER] Analytics fetch failed: User not found`);
         return res.status(404).json({
             success: false,
             message: 'User not found',
@@ -983,282 +978,161 @@ const getAnalytics = catchAsync(async (req, res) => {
         });
     }
 
-    const teamCount = await TeamMember.countDocuments({ user: userId, status: 'active' });
-
-    const analytics = {
-        totalTestsRun: user.analytics.totalTestsRun,
-        totalTestsPassed: user.analytics.totalTestsPassed,
-        totalTestsFailed: user.analytics.totalTestsFailed,
-        averageTestDuration: user.analytics.averageTestDuration,
-        lastTestRun: user.analytics.lastTestRun,
-        totalLoginCount: user.analytics.totalLoginCount,
-        totalProjectsCreated: user.analytics.totalProjectsCreated,
-        activeTeams: teamCount,
-        subscriptionPlan: user.subscription.plan,
-        subscriptionStatus: user.subscription.status,
-        usagePercentage: {
-            apiTests: (user.usage.apiTestsRun / user.limits.maxApiTests) * 100,
-            testScripts: (user.usage.testScriptsGenerated / user.limits.maxTestScripts) * 100,
-            repositories: (user.usage.repositoriesConnected / user.limits.maxRepositories) * 100,
-            projects: (user.usage.projectsCreated / user.limits.maxProjects) * 100
-        }
-    };
-
-    console.log(`[USER_CONTROLLER] Analytics fetched: ${userId}`);
+    console.log(`[USER] User fetched: ${user.email}`);
 
     return res.json({
         success: true,
-        data: { analytics }
-    });
-});
-
-const connectIntegration = catchAsync(async (req, res) => {
-    const { provider, accessToken, refreshToken, additionalData } = req.body;
-    console.log(`[USER_CONTROLLER] Connecting integration: ${provider} for user: ${req.user._id}`);
-
-    if (!provider || !accessToken) {
-        console.warn(`[USER_CONTROLLER] Integration connection failed: Missing required fields`);
-        return res.status(400).json({
-            success: false,
-            message: 'Provider and access token are required',
-            code: 'MISSING_FIELDS'
-        });
-    }
-
-    const user = await User.findById(req.user._id);
-
-    if (!user.integrations[provider]) {
-        console.warn(`[USER_CONTROLLER] Integration connection failed: Unknown provider - ${provider}`);
-        return res.status(400).json({
-            success: false,
-            message: `Integration ${provider} not supported`,
-            code: 'UNKNOWN_PROVIDER'
-        });
-    }
-
-    user.integrations[provider] = {
-        connected: true,
-        accessToken,
-        refreshToken: refreshToken || null,
-        ...additionalData,
-        expiresAt: additionalData?.expiresAt || null
-    };
-
-    await user.save();
-
-    await AuditLog.create({
-        user: req.user._id,
-        action: 'integration_connected',
-        actionCategory: 'integration',
-        entityType: 'user',
-        entityId: user._id,
-        status: 'success',
-        severity: 'info',
-        details: { provider },
-        ipAddress: req.ip,
-        userAgent: req.get('user-agent'),
-        requestId: req.id
-    });
-
-    console.log(`[USER_CONTROLLER] Integration connected successfully: ${provider}`);
-
-    return res.json({
-        success: true,
-        message: `${provider} integration connected successfully`,
-        data: { user: { integrations: user.integrations } }
-    });
-});
-
-const disconnectIntegration = catchAsync(async (req, res) => {
-    const { provider } = req.body;
-    console.log(`[USER_CONTROLLER] Disconnecting integration: ${provider} for user: ${req.user._id}`);
-
-    if (!provider) {
-        console.warn(`[USER_CONTROLLER] Integration disconnection failed: Provider missing`);
-        return res.status(400).json({
-            success: false,
-            message: 'Provider is required',
-            code: 'PROVIDER_REQUIRED'
-        });
-    }
-
-    const user = await User.findById(req.user._id);
-
-    if (!user.integrations[provider]) {
-        console.warn(`[USER_CONTROLLER] Integration disconnection failed: Unknown provider - ${provider}`);
-        return res.status(400).json({
-            success: false,
-            message: `Integration ${provider} not supported`,
-            code: 'UNKNOWN_PROVIDER'
-        });
-    }
-
-    user.integrations[provider] = {
-        connected: false,
-        accessToken: null,
-        refreshToken: null
-    };
-
-    await user.save();
-
-    await AuditLog.create({
-        user: req.user._id,
-        action: 'integration_disconnected',
-        actionCategory: 'integration',
-        entityType: 'user',
-        entityId: user._id,
-        status: 'success',
-        severity: 'info',
-        details: { provider },
-        ipAddress: req.ip,
-        userAgent: req.get('user-agent'),
-        requestId: req.id
-    });
-
-    console.log(`[USER_CONTROLLER] Integration disconnected successfully: ${provider}`);
-
-    return res.json({
-        success: true,
-        message: `${provider} integration disconnected successfully`,
-        data: { user: { integrations: user.integrations } }
-    });
-});
-
-// Login function
-const login = catchAsync(async (req, res) => {
-    const user = req.user;
-    const token = user.generateAuthToken();
-    const refreshToken = user.generateRefreshToken();
-
-    res.json({
-        success: true,
-        message: 'Login successful',
-        data: {
-            user,
-            token,
-            refreshToken
-        }
-    });
-});
-
-// Two-factor setup
-const setupTwoFactor = catchAsync(async (req, res) => {
-    res.json({
-        success: true,
-        message: 'Two-factor setup initiated',
-        data: {}
-    });
-});
-
-// Two-factor verify
-const verifyTwoFactor = catchAsync(async (req, res) => {
-    res.json({
-        success: true,
-        message: 'Two-factor verified',
-        data: {}
-    });
-});
-
-// Two-factor disable
-const disableTwoFactor = catchAsync(async (req, res) => {
-    res.json({
-        success: true,
-        message: 'Two-factor disabled',
-        data: {}
-    });
-});
-
-// Get user integrations
-const getUserIntegrations = catchAsync(async (req, res) => {
-    const user = await User.findById(req.user._id).select('integrations');
-    res.json({
-        success: true,
-        message: 'User integrations retrieved',
-        data: { integrations: user.integrations }
-    });
-});
-
-// Generate referral code
-const generateReferralCode = catchAsync(async (req, res) => {
-    const user = await User.findById(req.user._id);
-    res.json({
-        success: true,
-        message: 'Referral code generated',
-        data: { referralCode: user.referral.code }
-    });
-});
-
-// Get referral info
-const getReferralInfo = catchAsync(async (req, res) => {
-    const { code } = req.params;
-    const user = await User.findOne({ 'referral.code': code });
-
-    if (!user) {
-        return res.status(404).json({
-            success: false,
-            message: 'Referral code not found'
-        });
-    }
-
-    res.json({
-        success: true,
-        message: 'Referral info retrieved',
-        data: {
-            referrerName: user.firstName + ' ' + user.lastName,
-            rewards: user.referral.totalRewards
-        }
-    });
-});
-
-// Update subscription
-const updateSubscription = catchAsync(async (req, res) => {
-    const { plan } = req.body;
-    const user = await User.findByIdAndUpdate(
-        req.user._id,
-        { 'subscription.plan': plan },
-        { new: true }
-    );
-
-    res.json({
-        success: true,
-        message: 'Subscription updated',
-        data: { subscription: user.subscription }
-    });
-});
-
-// Update user role
-const updateUserRole = catchAsync(async (req, res) => {
-    const { userId } = req.params;
-    const { role } = req.body;
-
-    const user = await User.findByIdAndUpdate(
-        userId,
-        { role },
-        { new: true }
-    );
-
-    if (!user) {
-        return res.status(404).json({
-            success: false,
-            message: 'User not found'
-        });
-    }
-
-    res.json({
-        success: true,
-        message: 'User role updated',
         data: { user }
     });
 });
 
-// Bulk user operation
+const updateUserRole = catchAsync(async (req, res) => {
+    const { userId } = req.params;
+    const { role } = req.body;
+    console.log(`[USER] Updating user role: ${userId} -> ${role}`);
+
+    if (!role) {
+        return res.status(400).json({
+            success: false,
+            message: 'Role is required',
+            code: 'MISSING_FIELDS'
+        });
+    }
+
+    const user = await User.findByIdAndUpdate(
+        userId,
+        { role },
+        { new: true, runValidators: true }
+    ).select('-password -twoFactorSecret -backupCodes -emailVerificationToken -passwordResetToken');
+
+    if (!user) {
+        return res.status(404).json({
+            success: false,
+            message: 'User not found',
+            code: 'USER_NOT_FOUND'
+        });
+    }
+
+    await AuditLog.create({
+        user: req.user._id,
+        action: 'user_role_updated',
+        actionCategory: 'user',
+        entityType: 'user',
+        entityId: user._id,
+        status: 'success',
+        severity: 'info',
+        changes: { role },
+        ipAddress: req.ip,
+        userAgent: req.get('user-agent'),
+        requestId: req.id
+    });
+
+    console.log(`[USER] User role updated: ${user.email} -> ${role}`);
+
+    return res.json({
+        success: true,
+        message: 'User role updated successfully',
+        data: { user }
+    });
+});
+
+const updateUserStatus = catchAsync(async (req, res) => {
+    const { userId } = req.params;
+    const { status } = req.body;
+    console.log(`[USER] Updating user status: ${userId} -> ${status}`);
+
+    if (!status) {
+        return res.status(400).json({
+            success: false,
+            message: 'Status is required',
+            code: 'MISSING_FIELDS'
+        });
+    }
+
+    const updateData = {};
+    if (status === 'active') updateData.isActive = true;
+    if (status === 'inactive') updateData.isActive = false;
+    if (status === 'suspended') updateData.isSuspended = true;
+
+    const user = await User.findByIdAndUpdate(
+        userId,
+        updateData,
+        { new: true, runValidators: true }
+    ).select('-password -twoFactorSecret -backupCodes -emailVerificationToken -passwordResetToken');
+
+    if (!user) {
+        return res.status(404).json({
+            success: false,
+            message: 'User not found',
+            code: 'USER_NOT_FOUND'
+        });
+    }
+
+    await AuditLog.create({
+        user: req.user._id,
+        action: 'user_status_updated',
+        actionCategory: 'user',
+        entityType: 'user',
+        entityId: user._id,
+        status: 'success',
+        severity: 'info',
+        changes: { status },
+        ipAddress: req.ip,
+        userAgent: req.get('user-agent'),
+        requestId: req.id
+    });
+
+    console.log(`[USER] User status updated: ${user.email} -> ${status}`);
+
+    return res.json({
+        success: true,
+        message: 'User status updated successfully',
+        data: { user }
+    });
+});
+
 const bulkUserOperation = catchAsync(async (req, res) => {
     const { operation, userIds } = req.body;
+    console.log(`[USER] Bulk operation: ${operation} on ${userIds?.length} users`);
 
-    res.json({
+    if (!operation || !userIds || userIds.length === 0) {
+        return res.status(400).json({
+            success: false,
+            message: 'Operation and userIds are required',
+            code: 'MISSING_FIELDS'
+        });
+    }
+
+    let updateData = {};
+    if (operation === 'activate') updateData.isActive = true;
+    if (operation === 'deactivate') updateData.isActive = false;
+    if (operation === 'suspend') updateData.isSuspended = true;
+    if (operation === 'unsuspend') updateData.isSuspended = false;
+
+    const result = await User.updateMany(
+        { _id: { $in: userIds } },
+        updateData
+    );
+
+    await AuditLog.create({
+        user: req.user._id,
+        action: 'bulk_user_operation',
+        actionCategory: 'user',
+        entityType: 'user',
+        status: 'success',
+        severity: 'warning',
+        details: { operation, count: userIds.length, modifiedCount: result.modifiedCount },
+        ipAddress: req.ip,
+        userAgent: req.get('user-agent'),
+        requestId: req.id
+    });
+
+    console.log(`[USER] Bulk operation completed: ${operation} on ${result.modifiedCount} users`);
+
+    return res.json({
         success: true,
-        message: `Bulk ${operation} operation completed`,
-        data: { operatedCount: userIds.length }
+        message: `Bulk operation completed: ${result.modifiedCount} users updated`,
+        data: { modifiedCount: result.modifiedCount }
     });
 });
 
@@ -1267,29 +1141,19 @@ module.exports = {
     verifyEmailToken,
     register,
     login,
+    logout,
     googleAuthCallback,
     githubAuthCallback,
+    refreshAccessToken,
     getCurrentUser,
     updateProfile,
     changePassword,
     forgotPassword,
     resetPassword,
-    updatePreferences,
+    deleteAccount,
     getAllUsers,
     getUserById,
-    updateUserStatus,
     updateUserRole,
-    deleteAccount,
-    updateAvatar,
-    getAnalytics,
-    setupTwoFactor,
-    verifyTwoFactor,
-    disableTwoFactor,
-    connectIntegration,
-    disconnectIntegration,
-    getUserIntegrations,
-    generateReferralCode,
-    getReferralInfo,
-    updateSubscription,
+    updateUserStatus,
     bulkUserOperation
 };

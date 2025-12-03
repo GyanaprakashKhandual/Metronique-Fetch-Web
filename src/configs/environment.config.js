@@ -1,10 +1,14 @@
 const dotenv = require('dotenv');
 const path = require('path');
+const fs = require('fs');
 
-const envPath = path.join(__dirname, '../.env');
+const envPath = path.join(__dirname, '../../.env');
+console.log('[ENV_CONFIG] Looking for .env at:', envPath);
+console.log('[ENV_CONFIG] .env exists:', fs.existsSync(envPath));
+
 const result = dotenv.config({ path: envPath });
 
-if (result.error) {
+if (result.error && result.error.code !== 'ENOENT') {
     console.error('Environment Configuration Error:', result.error.message);
     console.error('Looking for .env file at:', envPath);
     process.exit(1);
@@ -12,6 +16,7 @@ if (result.error) {
 
 console.log('Environment Variables Loaded Successfully');
 console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
+console.log('[ENV_CONFIG] MONGODB_URI_DEV loaded:', !!process.env.MONGODB_URI_DEV);
 
 const environment = {
     node: {
