@@ -6,13 +6,11 @@ const mongoose = require('mongoose');
 const cors = require('cors');
 const cookieParser = require('cookie-parser');
 
-// Load Passport Configuration
 require('./configs/passport.config');
 
 console.log('[APP_SETUP] Setting up Express app...');
 const app = express();
 
-// CORS Configuration
 const corsOptions = {
     origin: 'http://localhost:3000',
     credentials: true,
@@ -22,11 +20,9 @@ const corsOptions = {
 app.use(cors(corsOptions));
 console.log('[MIDDLEWARE] CORS configured for http://localhost:3000');
 
-// Cookie Parser Middleware
 app.use(cookieParser());
 console.log('[MIDDLEWARE] Cookie parser configured');
 
-// Middleware
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 app.use(express.static(path.join(__dirname, 'public')));
@@ -34,28 +30,25 @@ app.use('/docs', express.static(path.join(__dirname, 'docs')));
 
 console.log('[MIDDLEWARE] Express JSON and URL-encoded middleware configured');
 
-// Session Middleware - ADD THIS BEFORE PASSPORT
 app.use(session({
     secret: process.env.SESSION_SECRET || 'your-session-secret-key',
     resave: false,
     saveUninitialized: false,
     cookie: {
-        secure: process.env.COOKIE_SECURE === 'true', // Set to true in production with HTTPS
+        secure: process.env.COOKIE_SECURE === 'true',
         httpOnly: process.env.COOKIE_HTTP_ONLY !== 'false',
         sameSite: process.env.COOKIE_SAME_SITE || 'lax',
-        maxAge: parseInt(process.env.COOKIE_MAX_AGE) || 86400000 // 24 hours
+        maxAge: parseInt(process.env.COOKIE_MAX_AGE) || 86400000
     }
 }));
 
 console.log('[MIDDLEWARE] Express-session middleware configured');
 
-// Passport Middleware - ADD AFTER SESSION
 app.use(passport.initialize());
 app.use(passport.session());
 
 console.log('[MIDDLEWARE] Passport middleware configured');
 
-// Logger middleware
 app.use((req, res, next) => {
     console.log(`[REQUEST] ${req.method} ${req.path} | IP: ${req.ip} | ContentType: ${req.get('content-type')}`);
     next();
@@ -73,8 +66,6 @@ app.get('/documentation', (req, res) => {
     res.sendFile(path.join(__dirname, '..', 'public', 'pages', 'document.html'));
 });
 
-
-// Health API
 app.get('/health-api', (req, res) => {
     console.log('[HEALTH_API] Health API endpoint accessed');
     res.json({
@@ -87,11 +78,12 @@ app.get('/health-api', (req, res) => {
 });
 
 console.log('[ROUTES] Starting route loading...');
-// Register Routes
+
 try {
     console.log('[ROUTES] Loading user routes...');
     const userRoutes = require('./routes/user.route');
     app.use('/api/v1/auth', userRoutes);
+    console.log('[ROUTES] User routes loaded successfully');
 } catch (err) {
     console.error('[ROUTES_ERROR] user.route:', err.message);
 }
@@ -100,6 +92,7 @@ try {
     console.log('[ROUTES] Loading team routes...');
     const teamRoutes = require('./routes/team.route');
     app.use('/api/v1/team', teamRoutes);
+    console.log('[ROUTES] Team routes loaded successfully');
 } catch (err) {
     console.error('[ROUTES_ERROR] team.route:', err.message);
 }
@@ -108,14 +101,86 @@ try {
     console.log('[ROUTES] Loading upload routes...');
     const uploadRoutes = require('./routes/upload.route');
     app.use('/api/v1/files', uploadRoutes);
+    console.log('[ROUTES] Upload routes loaded successfully');
 } catch (err) {
     console.error('[ROUTES_ERROR] upload.route:', err.message);
 }
 
+try {
+    console.log('[ROUTES] Loading project routes...');
+    const projectRoutes = require('./routes/project.route');
+    app.use('/api/v1/projects', projectRoutes);
+    console.log('[ROUTES] Project routes loaded successfully');
+} catch (err) {
+    console.error('[ROUTES_ERROR] project.route:', err.message);
+    console.error('[ROUTES_ERROR] Stack:', err.stack);
+}
+
+try {
+    console.log('[ROUTES] Loading repository routes...');
+    const repositoryRoutes = require('./routes/repository.route');
+    app.use('/api/v1/projects', repositoryRoutes);
+    console.log('[ROUTES] Repository routes loaded successfully');
+} catch (err) {
+    console.error('[ROUTES_ERROR] repository.route:', err.message);
+}
+
+try {
+    console.log('[ROUTES] Loading database routes...');
+    const databaseRoutes = require('./routes/database.route');
+    app.use('/api/v1/projects', databaseRoutes);
+    console.log('[ROUTES] Database routes loaded successfully');
+} catch (err) {
+    console.error('[ROUTES_ERROR] database.route:', err.message);
+}
+
+try {
+    console.log('[ROUTES] Loading AI analysis routes...');
+    const aiAnalysisRoutes = require('./routes/ai.analysis.route');
+    app.use('/api/v1/projects', aiAnalysisRoutes);
+    console.log('[ROUTES] AI analysis routes loaded successfully');
+} catch (err) {
+    console.error('[ROUTES_ERROR] ai.analysis.route:', err.message);
+}
+
+try {
+    console.log('[ROUTES] Loading test script routes...');
+    const testScriptRoutes = require('./routes/test.script.route');
+    app.use('/api/v1/projects', testScriptRoutes);
+    console.log('[ROUTES] Test script routes loaded successfully');
+} catch (err) {
+    console.error('[ROUTES_ERROR] test.script.route:', err.message);
+}
+
+try {
+    console.log('[ROUTES] Loading test folder routes...');
+    const testFolderRoutes = require('./routes/test.folder.route');
+    app.use('/api/v1/projects', testFolderRoutes);
+    console.log('[ROUTES] Test folder routes loaded successfully');
+} catch (err) {
+    console.error('[ROUTES_ERROR] test.folder.route:', err.message);
+}
+
+try {
+    console.log('[ROUTES] Loading test file routes...');
+    const testFileRoutes = require('./routes/test.file.route');
+    app.use('/api/v1/projects', testFileRoutes);
+    console.log('[ROUTES] Test file routes loaded successfully');
+} catch (err) {
+    console.error('[ROUTES_ERROR] test.file.route:', err.message);
+}
+
+try {
+    console.log('[ROUTES] Loading test execution routes...');
+    const testExecutionRoutes = require('./routes/test.execution.route');
+    app.use('/api/v1/projects', testExecutionRoutes);
+    console.log('[ROUTES] Test execution routes loaded successfully');
+} catch (err) {
+    console.error('[ROUTES_ERROR] test.execution.route:', err.message);
+}
 
 console.log('[ROUTES] All routes registered');
 
-// 404 Handler
 app.use((req, res, next) => {
     console.warn(`[ROUTE_NOT_FOUND] ${req.method} ${req.path}`);
     res.status(404).json({
@@ -127,7 +192,6 @@ app.use((req, res, next) => {
     });
 });
 
-// Error Handler
 app.use((err, req, res, next) => {
     console.error(`[ERROR] ${err.message}`);
     console.error(`[ERROR_STACK] ${err.stack}`);

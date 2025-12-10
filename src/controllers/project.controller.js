@@ -1,17 +1,99 @@
 const Project = require('../models/project.model');
-const ProjectAccess = require('../models/project.access.model');
+const TestFolder = require('../models/test.folder.model');
+const TestFile = require('../models/test.file.model');
 const AuditLog = require('../models/audit.model');
 const { catchAsync } = require('../utils/error.util');
-const projectService = require('../services/project/project.service');
-const projectSetupService = require('../services/project/project.setup.service');
-const projectConfigService = require('../services/project/project.config.service');
 
-const createProject = catchAsync(async (req, res) => {
-    const { name, description, visibility, category, priority, teamId, testConfig, technology } = req.body;
-    console.log(`[PROJECT_CONTROLLER] Creating project: ${name} for user: ${req.user._id}`);
+const UNIFIED_STRUCTURE = {
+    folders: [
+        { name: 'src/test/java/com/api/tests', path: '/src/test/java/com/api/tests', type: 'test', level: 1 },
+        { name: 'src/test/java/com/api/tests/api', path: '/src/test/java/com/api/tests/api', type: 'test', level: 2 },
+        { name: 'src/test/java/com/api/tests/integration', path: '/src/test/java/com/api/tests/integration', type: 'test', level: 2 },
+        { name: 'src/test/java/com/api/tests/smoke', path: '/src/test/java/com/api/tests/smoke', type: 'test', level: 2 },
+        { name: 'src/test/java/com/api/tests/regression', path: '/src/test/java/com/api/tests/regression', type: 'test', level: 2 },
+
+        { name: 'src/test/java/com/api/stepdefinitions', path: '/src/test/java/com/api/stepdefinitions', type: 'step', level: 1 },
+        { name: 'src/test/java/com/api/stepdefinitions/api', path: '/src/test/java/com/api/stepdefinitions/api', type: 'step', level: 2 },
+        { name: 'src/test/java/com/api/stepdefinitions/database', path: '/src/test/java/com/api/stepdefinitions/database', type: 'step', level: 2 },
+        { name: 'src/test/java/com/api/stepdefinitions/auth', path: '/src/test/java/com/api/stepdefinitions/auth', type: 'step', level: 2 },
+
+        { name: 'src/test/java/com/api/hooks', path: '/src/test/java/com/api/hooks', type: 'hook', level: 1 },
+        { name: 'src/test/java/com/api/runners', path: '/src/test/java/com/api/runners', type: 'runner', level: 1 },
+
+        { name: 'src/test/java/com/api/utils', path: '/src/test/java/com/api/utils', type: 'utility', level: 1 },
+        { name: 'src/test/java/com/api/utils/api', path: '/src/test/java/com/api/utils/api', type: 'utility', level: 2 },
+        { name: 'src/test/java/com/api/utils/database', path: '/src/test/java/com/api/utils/database', type: 'utility', level: 2 },
+        { name: 'src/test/java/com/api/utils/auth', path: '/src/test/java/com/api/utils/auth', type: 'utility', level: 2 },
+        { name: 'src/test/java/com/api/utils/common', path: '/src/test/java/com/api/utils/common', type: 'utility', level: 2 },
+
+        { name: 'src/test/java/com/api/config', path: '/src/test/java/com/api/config', type: 'config', level: 1 },
+        { name: 'src/test/java/com/api/base', path: '/src/test/java/com/api/base', type: 'base', level: 1 },
+        { name: 'src/test/java/com/api/listeners', path: '/src/test/java/com/api/listeners', type: 'listener', level: 1 },
+        { name: 'src/test/java/com/api/helpers', path: '/src/test/java/com/api/helpers', type: 'helper', level: 1 },
+        { name: 'src/test/java/com/api/dataproviders', path: '/src/test/java/com/api/dataproviders', type: 'provider', level: 1 },
+
+        { name: 'src/test/java/com/api/models', path: '/src/test/java/com/api/models', type: 'model', level: 1 },
+        { name: 'src/test/java/com/api/models/request', path: '/src/test/java/com/api/models/request', type: 'model', level: 2 },
+        { name: 'src/test/java/com/api/models/response', path: '/src/test/java/com/api/models/response', type: 'model', level: 2 },
+
+        { name: 'src/test/resources', path: '/src/test/resources', type: 'resource', level: 1 },
+        { name: 'src/test/resources/features', path: '/src/test/resources/features', type: 'feature', level: 2 },
+        { name: 'src/test/resources/features/api', path: '/src/test/resources/features/api', type: 'feature', level: 3 },
+        { name: 'src/test/resources/features/database', path: '/src/test/resources/features/database', type: 'feature', level: 3 },
+        { name: 'src/test/resources/features/auth', path: '/src/test/resources/features/auth', type: 'feature', level: 3 },
+        { name: 'src/test/resources/features/integration', path: '/src/test/resources/features/integration', type: 'feature', level: 3 },
+
+        { name: 'src/test/resources/testdata', path: '/src/test/resources/testdata', type: 'resource', level: 2 },
+        { name: 'src/test/resources/config', path: '/src/test/resources/config', type: 'resource', level: 2 },
+        { name: 'src/test/resources/schemas', path: '/src/test/resources/schemas', type: 'resource', level: 2 },
+        { name: 'src/test/resources/schemas/request', path: '/src/test/resources/schemas/request', type: 'resource', level: 3 },
+        { name: 'src/test/resources/schemas/response', path: '/src/test/resources/schemas/response', type: 'resource', level: 3 },
+    ],
+
+    javaFiles: {
+        'src/test/java/com/api/runners': ['TestRunner.java', 'ApiTestRunner.java', 'SmokeTestRunner.java', 'RegressionTestRunner.java'],
+        'src/test/java/com/api/hooks': ['Hooks.java', 'TestContext.java'],
+        'src/test/java/com/api/stepdefinitions/api': ['UserApiSteps.java', 'ProductApiSteps.java', 'AuthApiSteps.java'],
+        'src/test/java/com/api/stepdefinitions/database': ['DatabaseSteps.java'],
+        'src/test/java/com/api/stepdefinitions/auth': ['AuthenticationSteps.java'],
+        'src/test/java/com/api/utils/api': ['RestAssuredUtil.java', 'RequestBuilder.java', 'ApiClient.java'],
+        'src/test/java/com/api/utils/database': ['DatabaseUtil.java', 'QueryExecutor.java'],
+        'src/test/java/com/api/utils/auth': ['AuthUtil.java', 'TokenManager.java'],
+        'src/test/java/com/api/utils/common': ['JsonUtil.java', 'FileUtil.java'],
+        'src/test/java/com/api/config': ['TestConfig.java', 'EnvironmentConfig.java', 'ApiConfig.java'],
+        'src/test/java/com/api/base': ['BaseTest.java', 'BaseApiTest.java'],
+        'src/test/java/com/api/listeners': ['TestListener.java', 'RetryListener.java', 'ReportListener.java'],
+        'src/test/java/com/api/helpers': ['AuthHelper.java', 'AssertionHelper.java', 'DataHelper.java'],
+        'src/test/java/com/api/dataproviders': ['ApiDataProvider.java'],
+        'src/test/java/com/api/tests/api': ['UserApiTest.java', 'ProductApiTest.java'],
+        'src/test/java/com/api/tests/integration': ['IntegrationTest.java'],
+        'src/test/java/com/api/tests/smoke': ['SmokeTest.java'],
+        'src/test/java/com/api/tests/regression': ['RegressionTest.java'],
+        'src/test/java/com/api/models/request': ['UserRequest.java', 'ProductRequest.java'],
+        'src/test/java/com/api/models/response': ['UserResponse.java', 'ProductResponse.java']
+    },
+
+    featureFiles: {
+        'src/test/resources/features/api': ['user-api.feature', 'product-api.feature'],
+        'src/test/resources/features/database': ['database.feature'],
+        'src/test/resources/features/auth': ['authentication.feature'],
+        'src/test/resources/features/integration': ['integration.feature']
+    },
+
+    configFiles: {
+        'src/test/resources/testdata': ['users.json', 'products.json', 'auth-tokens.json'],
+        'src/test/resources/config': ['test.properties', 'log4j2.xml', 'cucumber.properties'],
+        'src/test/resources/schemas/request': ['user-request-schema.json', 'product-request-schema.json'],
+        'src/test/resources/schemas/response': ['user-response-schema.json', 'product-response-schema.json']
+    },
+
+    rootFiles: ['pom.xml', 'testng.xml', 'README.md', '.gitignore']
+};
+
+const createProjectWithUnifiedStructure = catchAsync(async (req, res) => {
+    const { name, description, team, visibility } = req.body;
 
     if (!name) {
-        console.warn(`[PROJECT_CONTROLLER] Project creation failed: Name missing`);
         return res.status(400).json({
             success: false,
             message: 'Project name is required',
@@ -19,42 +101,393 @@ const createProject = catchAsync(async (req, res) => {
         });
     }
 
-    const project = await projectService.createProject(
-        { name, description, visibility, category, priority, testConfig, technology },
-        req.user._id,
-        teamId || null,
-        {
-            ipAddress: req.ip,
-            userAgent: req.get('user-agent'),
-            requestId: req.id
+    const project = new Project({
+        name: name.trim(),
+        description: description?.trim(),
+        owner: req.user._id,
+        team: team || null,
+        visibility: visibility || 'private',
+        status: 'active',
+        testConfig: {
+            framework: 'unified',
+            language: 'java',
+            buildTool: 'maven',
+            timeout: 30000,
+            retryCount: 2,
+            parallel: true,
+            threadCount: 4
+        },
+        stats: {
+            totalTests: 0,
+            totalTestsPassed: 0,
+            totalTestsFailed: 0,
+            totalTestsSkipped: 0,
+            successRate: 0,
+            averageExecutionTime: 0,
+            totalExecutions: 0
         }
-    );
+    });
 
-    console.log(`[PROJECT_CONTROLLER] Project created successfully: ${project._id}`);
+    await project.save();
+
+    const rootFolder = new TestFolder({
+        project: project._id,
+        name: project.slug,
+        path: `/${project.slug}`,
+        type: 'root',
+        level: 0,
+        description: 'Unified API Testing Environment (Cucumber + REST Assured + TestNG)',
+        isSystemFolder: true,
+        createdBy: req.user._id
+    });
+
+    await rootFolder.save();
+
+    const folderMap = { '/': rootFolder._id };
+    let totalFolders = 1;
+    let totalFiles = UNIFIED_STRUCTURE.rootFiles.length;
+
+    for (const folderConfig of UNIFIED_STRUCTURE.folders) {
+        const folder = new TestFolder({
+            project: project._id,
+            name: folderConfig.name.split('/').pop(),
+            path: `/${project.slug}${folderConfig.path}`,
+            parentFolder: rootFolder._id,
+            type: folderConfig.type,
+            level: folderConfig.level,
+            description: folderConfig.name,
+            isSystemFolder: true,
+            createdBy: req.user._id
+        });
+
+        await folder.save();
+        folderMap[folderConfig.path] = folder._id;
+        totalFolders++;
+    }
+
+    for (const [folderPath, fileList] of Object.entries(UNIFIED_STRUCTURE.javaFiles)) {
+        const parentFolderId = folderMap[folderPath];
+        if (!parentFolderId) continue;
+
+        for (const fileName of fileList) {
+            const javaTemplate = `package com.api;
+
+public class ${fileName.replace('.java', '')} {
+    // Auto-generated stub
+}`;
+
+            const file = new TestFile({
+                project: project._id,
+                folder: parentFolderId,
+                name: fileName,
+                fileName: fileName,
+                path: `/${project.slug}${folderPath}/${fileName}`,
+                extension: 'java',
+                type: 'java',
+                language: 'java',
+                content: javaTemplate,
+                originalContent: javaTemplate,
+                size: Buffer.byteLength(javaTemplate),
+                lines: javaTemplate.split('\n').length,
+                syntax: { valid: true, errors: [] },
+                status: 'validated',
+                isGenerated: true,
+                generatedBy: 'system',
+                isEditable: true,
+                createdBy: req.user._id
+            });
+
+            await file.save();
+            totalFiles++;
+        }
+    }
+
+    for (const [folderPath, fileList] of Object.entries(UNIFIED_STRUCTURE.featureFiles)) {
+        const parentFolderId = folderMap[folderPath];
+        if (!parentFolderId) continue;
+
+        for (const fileName of fileList) {
+            const featureTemplate = `Feature: ${fileName.replace('.feature', '').replace('-', ' ')}
+  
+  Scenario: Sample scenario
+    Given step one
+    When step two
+    Then step three`;
+
+            const file = new TestFile({
+                project: project._id,
+                folder: parentFolderId,
+                name: fileName,
+                fileName: fileName,
+                path: `/${project.slug}${folderPath}/${fileName}`,
+                extension: 'feature',
+                type: 'feature',
+                language: 'gherkin',
+                content: featureTemplate,
+                originalContent: featureTemplate,
+                size: Buffer.byteLength(featureTemplate),
+                lines: featureTemplate.split('\n').length,
+                syntax: { valid: true, errors: [] },
+                status: 'validated',
+                isGenerated: true,
+                generatedBy: 'system',
+                isEditable: true,
+                createdBy: req.user._id
+            });
+
+            await file.save();
+            totalFiles++;
+        }
+    }
+
+    for (const [folderPath, fileList] of Object.entries(UNIFIED_STRUCTURE.configFiles)) {
+        const parentFolderId = folderMap[folderPath];
+        if (!parentFolderId) continue;
+
+        for (const fileName of fileList) {
+            let configContent = '';
+
+            if (fileName.endsWith('.json')) {
+                configContent = JSON.stringify({ data: 'Test data' }, null, 2);
+            } else {
+                configContent = `# ${fileName}\n# Configuration`;
+            }
+
+            const file = new TestFile({
+                project: project._id,
+                folder: parentFolderId,
+                name: fileName,
+                fileName: fileName,
+                path: `/${project.slug}${folderPath}/${fileName}`,
+                extension: fileName.split('.').pop(),
+                type: 'config',
+                language: fileName.endsWith('.json') ? 'json' : 'properties',
+                content: configContent,
+                originalContent: configContent,
+                size: Buffer.byteLength(configContent),
+                lines: configContent.split('\n').length,
+                syntax: { valid: true, errors: [] },
+                status: 'validated',
+                isGenerated: true,
+                generatedBy: 'system',
+                isEditable: true,
+                createdBy: req.user._id
+            });
+
+            await file.save();
+            totalFiles++;
+        }
+    }
+
+    for (const rootFileName of UNIFIED_STRUCTURE.rootFiles) {
+        let rootContent = '';
+
+        if (rootFileName === 'pom.xml') {
+            rootContent = `<?xml version="1.0"?>
+<project>
+    <modelVersion>4.0.0</modelVersion>
+    <groupId>com.api</groupId>
+    <artifactId>${project.slug}</artifactId>
+    <version>1.0.0</version>
+</project>`;
+        } else if (rootFileName === 'testng.xml') {
+            rootContent = `<?xml version="1.0"?>
+<suite name="API Tests">
+</suite>`;
+        } else if (rootFileName === 'README.md') {
+            rootContent = `# ${name}\n\nUnified API Testing Environment`;
+        } else if (rootFileName === '.gitignore') {
+            rootContent = `target/\n.idea/\n*.class`;
+        }
+
+        const file = new TestFile({
+            project: project._id,
+            folder: rootFolder._id,
+            name: rootFileName,
+            fileName: rootFileName,
+            path: `/${project.slug}/${rootFileName}`,
+            extension: rootFileName.split('.').pop(),
+            type: 'config',
+            language: 'text',
+            content: rootContent,
+            originalContent: rootContent,
+            size: Buffer.byteLength(rootContent),
+            lines: rootContent.split('\n').length,
+            syntax: { valid: true, errors: [] },
+            status: 'validated',
+            isGenerated: true,
+            generatedBy: 'system',
+            isEditable: true,
+            createdBy: req.user._id
+        });
+
+        await file.save();
+    }
+
+    project.testFolder = {
+        generated: true,
+        generatedAt: Date.now(),
+        rootPath: rootFolder.path,
+        totalFiles: totalFiles,
+        totalFolders: totalFolders,
+        framework: 'unified',
+        integrated: ['cucumber', 'rest-assured', 'testng']
+    };
+
+    await project.save();
+
+    await AuditLog.create({
+        user: req.user._id,
+        action: 'project_created_unified_structure',
+        actionCategory: 'project',
+        entityType: 'project',
+        entityId: project._id,
+        status: 'success',
+        severity: 'info',
+        details: { name, framework: 'unified', totalFolders, totalFiles },
+        ipAddress: req.ip,
+        userAgent: req.get('user-agent'),
+        requestId: req.id
+    });
+
+    return res.status(201).json({
+        success: true,
+        message: 'Unified API Testing Environment created successfully',
+        data: {
+            project: {
+                id: project._id,
+                name: project.name,
+                slug: project.slug,
+                status: project.status,
+                framework: 'unified',
+                integrated: ['Cucumber', 'REST Assured', 'TestNG'],
+                owner: project.owner,
+                createdAt: project.createdAt,
+                structure: { totalFolders, totalFiles, rootPath: rootFolder.path }
+            }
+        }
+    });
+});
+
+const createProject = catchAsync(async (req, res) => {
+    const { name, description, team, visibility } = req.body;
+
+    if (!name) {
+        return res.status(400).json({
+            success: false,
+            message: 'Project name is required',
+            code: 'NAME_REQUIRED'
+        });
+    }
+
+    const project = new Project({
+        name: name.trim(),
+        description: description?.trim(),
+        owner: req.user._id,
+        team: team || null,
+        visibility: visibility || 'private',
+        status: 'draft',
+        testConfig: {
+            framework: 'rest-assured',
+            language: 'java',
+            buildTool: 'maven',
+            timeout: 30000,
+            retryCount: 2,
+            parallel: false,
+            threadCount: 1
+        },
+        stats: {
+            totalTests: 0,
+            totalTestsPassed: 0,
+            totalTestsFailed: 0,
+            totalTestsSkipped: 0,
+            successRate: 0,
+            averageExecutionTime: 0,
+            totalExecutions: 0
+        }
+    });
+
+    await project.save();
+
+    const rootFolder = new TestFolder({
+        project: project._id,
+        name: project.slug,
+        path: `/${project.slug}`,
+        type: 'root',
+        level: 0,
+        description: 'Root folder for test project',
+        isSystemFolder: true,
+        createdBy: req.user._id
+    });
+
+    await rootFolder.save();
+
+    project.testFolder = {
+        generated: false,
+        generatedAt: null,
+        rootPath: rootFolder.path,
+        totalFiles: 0,
+        totalFolders: 1
+    };
+
+    await project.save();
+
+    await AuditLog.create({
+        user: req.user._id,
+        action: 'project_created',
+        actionCategory: 'project',
+        entityType: 'project',
+        entityId: project._id,
+        status: 'success',
+        severity: 'info',
+        details: { name, team },
+        ipAddress: req.ip,
+        userAgent: req.get('user-agent'),
+        requestId: req.id
+    });
 
     return res.status(201).json({
         success: true,
         message: 'Project created successfully',
-        data: { project }
+        data: {
+            project: {
+                id: project._id,
+                name: project.name,
+                slug: project.slug,
+                status: project.status,
+                owner: project.owner,
+                team: project.team,
+                createdAt: project.createdAt
+            }
+        }
     });
 });
 
 const getProjectById = catchAsync(async (req, res) => {
     const { projectId } = req.params;
-    console.log(`[PROJECT_CONTROLLER] Fetching project: ${projectId}`);
 
-    const project = await projectService.getProjectById(projectId, req.user._id);
+    const project = await Project.findById(projectId)
+        .populate('owner', 'firstName lastName email avatar')
+        .populate('team', 'name avatar')
+        .lean();
 
     if (!project) {
-        console.warn(`[PROJECT_CONTROLLER] Project not found or unauthorized: ${projectId}`);
         return res.status(404).json({
             success: false,
-            message: 'Project not found or you do not have access',
+            message: 'Project not found',
             code: 'PROJECT_NOT_FOUND'
         });
     }
 
-    console.log(`[PROJECT_CONTROLLER] Project fetched: ${project.name}`);
+    const hasAccess = await Project.findById(projectId).then(p => p.hasAccess(req.user._id));
+
+    if (!hasAccess) {
+        return res.status(403).json({
+            success: false,
+            message: 'You do not have access to this project',
+            code: 'ACCESS_DENIED'
+        });
+    }
 
     return res.json({
         success: true,
@@ -63,857 +496,39 @@ const getProjectById = catchAsync(async (req, res) => {
 });
 
 const getUserProjects = catchAsync(async (req, res) => {
-    const { page = 1, limit = 20, status, teamId } = req.query;
-    console.log(`[PROJECT_CONTROLLER] Fetching projects for user: ${req.user._id}`);
-
-    const { projects, total } = await projectService.getUserProjects(req.user._id, {
-        skip: (page - 1) * limit,
-        limit: parseInt(limit),
-        status,
-        teamId
-    });
-
-    console.log(`[PROJECT_CONTROLLER] Projects fetched: ${projects.length} of ${total}`);
-
-    return res.json({
-        success: true,
-        data: {
-            projects,
-            pagination: {
-                total,
-                page: parseInt(page),
-                limit: parseInt(limit),
-                pages: Math.ceil(total / limit)
-            }
-        }
-    });
-});
-
-const getTeamProjects = catchAsync(async (req, res) => {
-    const { teamId } = req.params;
-    const { page = 1, limit = 20, status } = req.query;
-    console.log(`[PROJECT_CONTROLLER] Fetching projects for team: ${teamId}`);
-
-    const { projects, total } = await projectService.getTeamProjects(teamId, {
-        skip: (page - 1) * limit,
-        limit: parseInt(limit),
-        status
-    });
-
-    console.log(`[PROJECT_CONTROLLER] Team projects fetched: ${projects.length} of ${total}`);
-
-    return res.json({
-        success: true,
-        data: {
-            projects,
-            pagination: {
-                total,
-                page: parseInt(page),
-                limit: parseInt(limit),
-                pages: Math.ceil(total / limit)
-            }
-        }
-    });
-});
-
-const updateProject = catchAsync(async (req, res) => {
-    const { projectId } = req.params;
-    const updates = req.body;
-    console.log(`[PROJECT_CONTROLLER] Updating project: ${projectId}`);
-
-    const project = await projectService.updateProject(
-        projectId,
-        updates,
-        req.user._id,
-        {
-            ipAddress: req.ip,
-            userAgent: req.get('user-agent'),
-            requestId: req.id
-        }
-    );
-
-    console.log(`[PROJECT_CONTROLLER] Project updated successfully: ${projectId}`);
-
-    return res.json({
-        success: true,
-        message: 'Project updated successfully',
-        data: { project }
-    });
-});
-
-const deleteProject = catchAsync(async (req, res) => {
-    const { projectId } = req.params;
-    console.log(`[PROJECT_CONTROLLER] Deleting project: ${projectId}`);
-
-    const result = await projectService.deleteProject(
-        projectId,
-        req.user._id,
-        {
-            ipAddress: req.ip,
-            userAgent: req.get('user-agent'),
-            requestId: req.id
-        }
-    );
-
-    console.log(`[PROJECT_CONTROLLER] Project deleted successfully: ${projectId}`);
-
-    return res.json({
-        success: true,
-        message: 'Project deleted successfully',
-        data: result
-    });
-});
-
-const archiveProject = catchAsync(async (req, res) => {
-    const { projectId } = req.params;
-    console.log(`[PROJECT_CONTROLLER] Archiving project: ${projectId}`);
-
-    const project = await projectService.archiveProject(
-        projectId,
-        req.user._id,
-        {
-            ipAddress: req.ip,
-            userAgent: req.get('user-agent'),
-            requestId: req.id
-        }
-    );
-
-    console.log(`[PROJECT_CONTROLLER] Project archived successfully: ${projectId}`);
-
-    return res.json({
-        success: true,
-        message: 'Project archived successfully',
-        data: { project }
-    });
-});
-
-const unarchiveProject = catchAsync(async (req, res) => {
-    const { projectId } = req.params;
-    console.log(`[PROJECT_CONTROLLER] Unarchiving project: ${projectId}`);
-
-    const project = await projectService.updateProjectStatus(
-        projectId,
-        'active',
-        req.user._id,
-        {
-            ipAddress: req.ip,
-            userAgent: req.get('user-agent'),
-            requestId: req.id
-        }
-    );
-
-    console.log(`[PROJECT_CONTROLLER] Project unarchived successfully: ${projectId}`);
-
-    return res.json({
-        success: true,
-        message: 'Project unarchived successfully',
-        data: { project }
-    });
-});
-
-const getProjectStats = catchAsync(async (req, res) => {
-    const { projectId } = req.params;
-    console.log(`[PROJECT_CONTROLLER] Fetching stats for project: ${projectId}`);
-
-    const stats = await projectService.getProjectStats(projectId);
-
-    console.log(`[PROJECT_CONTROLLER] Project stats fetched: ${projectId}`);
-
-    return res.json({
-        success: true,
-        data: { stats }
-    });
-});
-
-const connectRepository = catchAsync(async (req, res) => {
-    const { projectId } = req.params;
-    const { repositoryUrl } = req.body;
-    console.log(`[PROJECT_CONTROLLER] Connecting repository to project: ${projectId}`);
-
-    if (!repositoryUrl) {
-        console.warn(`[PROJECT_CONTROLLER] Repository connection failed: URL missing`);
-        return res.status(400).json({
-            success: false,
-            message: 'Repository URL is required',
-            code: 'REPOSITORY_URL_REQUIRED'
-        });
-    }
-
-    const repository = await projectSetupService.connectRepository(
-        projectId,
-        repositoryUrl,
-        req.user._id,
-        {
-            ipAddress: req.ip,
-            userAgent: req.get('user-agent'),
-            requestId: req.id
-        }
-    );
-
-    console.log(`[PROJECT_CONTROLLER] Repository connected successfully: ${repository._id}`);
-
-    return res.status(201).json({
-        success: true,
-        message: 'Repository connected successfully',
-        data: { repository }
-    });
-});
-
-const analyzeRepository = catchAsync(async (req, res) => {
-    const { projectId } = req.params;
-    console.log(`[PROJECT_CONTROLLER] Analyzing repository for project: ${projectId}`);
-
-    const result = await projectSetupService.analyzeRepository(
-        projectId,
-        req.user._id,
-        {
-            ipAddress: req.ip,
-            userAgent: req.get('user-agent'),
-            requestId: req.id
-        }
-    );
-
-    console.log(`[PROJECT_CONTROLLER] Repository analysis completed: ${projectId}`);
-
-    return res.json({
-        success: true,
-        message: 'Repository analyzed successfully',
-        data: result
-    });
-});
-
-const connectDatabase = catchAsync(async (req, res) => {
-    const { projectId } = req.params;
-    const dbConnectionData = req.body;
-    console.log(`[PROJECT_CONTROLLER] Connecting database to project: ${projectId}`);
-
-    if (!dbConnectionData.name || !dbConnectionData.type) {
-        console.warn(`[PROJECT_CONTROLLER] Database connection failed: Missing required fields`);
-        return res.status(400).json({
-            success: false,
-            message: 'Database name and type are required',
-            code: 'MISSING_FIELDS'
-        });
-    }
-
-    const dbConnection = await projectSetupService.connectDatabase(
-        projectId,
-        dbConnectionData,
-        req.user._id,
-        {
-            ipAddress: req.ip,
-            userAgent: req.get('user-agent'),
-            requestId: req.id
-        }
-    );
-
-    console.log(`[PROJECT_CONTROLLER] Database connected successfully: ${dbConnection._id}`);
-
-    return res.status(201).json({
-        success: true,
-        message: 'Database connected successfully',
-        data: { dbConnection }
-    });
-});
-
-const testDatabaseConnection = catchAsync(async (req, res) => {
-    const { projectId, dbConnectionId } = req.params;
-    console.log(`[PROJECT_CONTROLLER] Testing database connection: ${dbConnectionId}`);
-
-    const dbConnection = await projectSetupService.testDatabaseConnection(
-        dbConnectionId,
-        req.user._id
-    );
-
-    console.log(`[PROJECT_CONTROLLER] Database connection test completed: ${dbConnectionId}`);
-
-    return res.json({
-        success: true,
-        message: 'Database connection tested successfully',
-        data: { dbConnection }
-    });
-});
-
-const analyzeDatabase = catchAsync(async (req, res) => {
-    const { projectId, dbConnectionId } = req.params;
-    console.log(`[PROJECT_CONTROLLER] Analyzing database schema: ${dbConnectionId}`);
-
-    const dbConnection = await projectSetupService.analyzeDatabase(
-        dbConnectionId,
-        req.user._id
-    );
-
-    console.log(`[PROJECT_CONTROLLER] Database schema analysis completed: ${dbConnectionId}`);
-
-    return res.json({
-        success: true,
-        message: 'Database schema analyzed successfully',
-        data: { dbConnection }
-    });
-});
-
-const setupTestEnvironment = catchAsync(async (req, res) => {
-    const { projectId } = req.params;
-    const testConfigData = req.body;
-    console.log(`[PROJECT_CONTROLLER] Setting up test environment for project: ${projectId}`);
-
-    const project = await projectSetupService.setupTestEnvironment(
-        projectId,
-        testConfigData,
-        req.user._id,
-        {
-            ipAddress: req.ip,
-            userAgent: req.get('user-agent'),
-            requestId: req.id
-        }
-    );
-
-    console.log(`[PROJECT_CONTROLLER] Test environment setup completed: ${projectId}`);
-
-    return res.json({
-        success: true,
-        message: 'Test environment configured successfully',
-        data: { project }
-    });
-});
-
-const generateTestFolder = catchAsync(async (req, res) => {
-    const { projectId } = req.params;
-    console.log(`[PROJECT_CONTROLLER] Generating test folder for project: ${projectId}`);
-
-    const result = await projectSetupService.generateTestFolder(
-        projectId,
-        req.user._id,
-        {
-            ipAddress: req.ip,
-            userAgent: req.get('user-agent'),
-            requestId: req.id
-        }
-    );
-
-    console.log(`[PROJECT_CONTROLLER] Test folder generated successfully: ${projectId}`);
-
-    return res.json({
-        success: true,
-        message: 'Test folder generated successfully',
-        data: result
-    });
-});
-
-const updateTestConfig = catchAsync(async (req, res) => {
-    const { projectId } = req.params;
-    const testConfig = req.body;
-    console.log(`[PROJECT_CONTROLLER] Updating test config for project: ${projectId}`);
-
-    const project = await projectConfigService.updateTestConfig(
-        projectId,
-        testConfig,
-        req.user._id,
-        {
-            ipAddress: req.ip,
-            userAgent: req.get('user-agent'),
-            requestId: req.id
-        }
-    );
-
-    console.log(`[PROJECT_CONTROLLER] Test config updated successfully: ${projectId}`);
-
-    return res.json({
-        success: true,
-        message: 'Test configuration updated successfully',
-        data: { project }
-    });
-});
-
-const addEnvironmentVariable = catchAsync(async (req, res) => {
-    const { projectId } = req.params;
-    const { key, value, isSecret } = req.body;
-    console.log(`[PROJECT_CONTROLLER] Adding environment variable to project: ${projectId}`);
-
-    if (!key || !value) {
-        console.warn(`[PROJECT_CONTROLLER] Add env variable failed: Missing fields`);
-        return res.status(400).json({
-            success: false,
-            message: 'Key and value are required',
-            code: 'MISSING_FIELDS'
-        });
-    }
-
-    const project = await projectConfigService.addEnvironmentVariable(
-        projectId,
-        key,
-        value,
-        isSecret || false,
-        req.user._id,
-        {
-            ipAddress: req.ip,
-            userAgent: req.get('user-agent'),
-            requestId: req.id
-        }
-    );
-
-    console.log(`[PROJECT_CONTROLLER] Environment variable added: ${key}`);
-
-    return res.status(201).json({
-        success: true,
-        message: 'Environment variable added successfully',
-        data: { project }
-    });
-});
-
-const updateEnvironmentVariable = catchAsync(async (req, res) => {
-    const { projectId, key } = req.params;
-    const { value } = req.body;
-    console.log(`[PROJECT_CONTROLLER] Updating environment variable: ${key}`);
-
-    if (!value) {
-        console.warn(`[PROJECT_CONTROLLER] Update env variable failed: Value missing`);
-        return res.status(400).json({
-            success: false,
-            message: 'Value is required',
-            code: 'VALUE_REQUIRED'
-        });
-    }
-
-    const project = await projectConfigService.updateEnvironmentVariable(
-        projectId,
-        key,
-        value,
-        req.user._id,
-        {
-            ipAddress: req.ip,
-            userAgent: req.get('user-agent'),
-            requestId: req.id
-        }
-    );
-
-    console.log(`[PROJECT_CONTROLLER] Environment variable updated: ${key}`);
-
-    return res.json({
-        success: true,
-        message: 'Environment variable updated successfully',
-        data: { project }
-    });
-});
-
-const removeEnvironmentVariable = catchAsync(async (req, res) => {
-    const { projectId, key } = req.params;
-    console.log(`[PROJECT_CONTROLLER] Removing environment variable: ${key}`);
-
-    const project = await projectConfigService.removeEnvironmentVariable(
-        projectId,
-        key,
-        req.user._id,
-        {
-            ipAddress: req.ip,
-            userAgent: req.get('user-agent'),
-            requestId: req.id
-        }
-    );
-
-    console.log(`[PROJECT_CONTROLLER] Environment variable removed: ${key}`);
-
-    return res.json({
-        success: true,
-        message: 'Environment variable removed successfully',
-        data: { project }
-    });
-});
-
-const setupCICD = catchAsync(async (req, res) => {
-    const { projectId } = req.params;
-    const cicdConfig = req.body;
-    console.log(`[PROJECT_CONTROLLER] Setting up CI/CD for project: ${projectId}`);
-
-    const project = await projectSetupService.setupCICD(
-        projectId,
-        cicdConfig,
-        req.user._id,
-        {
-            ipAddress: req.ip,
-            userAgent: req.get('user-agent'),
-            requestId: req.id
-        }
-    );
-
-    console.log(`[PROJECT_CONTROLLER] CI/CD setup completed: ${projectId}`);
-
-    return res.json({
-        success: true,
-        message: 'CI/CD configured successfully',
-        data: { project }
-    });
-});
-
-const setupNotifications = catchAsync(async (req, res) => {
-    const { projectId } = req.params;
-    const notificationConfig = req.body;
-    console.log(`[PROJECT_CONTROLLER] Setting up notifications for project: ${projectId}`);
-
-    const project = await projectSetupService.setupNotifications(
-        projectId,
-        notificationConfig,
-        req.user._id,
-        {
-            ipAddress: req.ip,
-            userAgent: req.get('user-agent'),
-            requestId: req.id
-        }
-    );
-
-    console.log(`[PROJECT_CONTROLLER] Notifications setup completed: ${projectId}`);
-
-    return res.json({
-        success: true,
-        message: 'Notifications configured successfully',
-        data: { project }
-    });
-});
-
-const setupSchedule = catchAsync(async (req, res) => {
-    const { projectId } = req.params;
-    const scheduleConfig = req.body;
-    console.log(`[PROJECT_CONTROLLER] Setting up schedule for project: ${projectId}`);
-
-    const project = await projectSetupService.setupSchedule(
-        projectId,
-        scheduleConfig,
-        req.user._id,
-        {
-            ipAddress: req.ip,
-            userAgent: req.get('user-agent'),
-            requestId: req.id
-        }
-    );
-
-    console.log(`[PROJECT_CONTROLLER] Schedule setup completed: ${projectId}`);
-
-    return res.json({
-        success: true,
-        message: 'Schedule configured successfully',
-        data: { project }
-    });
-});
-
-const getProjectConfig = catchAsync(async (req, res) => {
-    const { projectId } = req.params;
-    console.log(`[PROJECT_CONTROLLER] Fetching configuration for project: ${projectId}`);
-
-    const config = await projectConfigService.getProjectConfig(projectId, req.user._id);
-
-    console.log(`[PROJECT_CONTROLLER] Project configuration fetched: ${projectId}`);
-
-    return res.json({
-        success: true,
-        data: { config }
-    });
-});
-
-const validateProjectConfig = catchAsync(async (req, res) => {
-    const { projectId } = req.params;
-    console.log(`[PROJECT_CONTROLLER] Validating configuration for project: ${projectId}`);
-
-    const validation = await projectConfigService.validateProjectConfig(projectId);
-
-    console.log(`[PROJECT_CONTROLLER] Project configuration validated: ${projectId}`);
-
-    return res.json({
-        success: true,
-        data: { validation }
-    });
-});
-
-const completeProjectSetup = catchAsync(async (req, res) => {
-    const { projectId } = req.params;
-    console.log(`[PROJECT_CONTROLLER] Completing project setup: ${projectId}`);
-
-    const project = await projectSetupService.completeProjectSetup(
-        projectId,
-        req.user._id,
-        {
-            ipAddress: req.ip,
-            userAgent: req.get('user-agent'),
-            requestId: req.id
-        }
-    );
-
-    console.log(`[PROJECT_CONTROLLER] Project setup completed: ${projectId}`);
-
-    return res.json({
-        success: true,
-        message: 'Project setup completed successfully',
-        data: { project }
-    });
-});
-
-const addCollaborator = catchAsync(async (req, res) => {
-    const { projectId } = req.params;
-    const { userId } = req.body;
-    console.log(`[PROJECT_CONTROLLER] Adding collaborator to project: ${projectId}`);
-
-    if (!userId) {
-        console.warn(`[PROJECT_CONTROLLER] Add collaborator failed: User ID missing`);
-        return res.status(400).json({
-            success: false,
-            message: 'User ID is required',
-            code: 'USER_ID_REQUIRED'
-        });
-    }
-
-    const project = await projectService.addCollaborator(
-        projectId,
-        userId,
-        req.user._id,
-        {
-            ipAddress: req.ip,
-            userAgent: req.get('user-agent'),
-            requestId: req.id
-        }
-    );
-
-    console.log(`[PROJECT_CONTROLLER] Collaborator added successfully: ${userId}`);
-
-    return res.status(201).json({
-        success: true,
-        message: 'Collaborator added successfully',
-        data: { project }
-    });
-});
-
-const removeCollaborator = catchAsync(async (req, res) => {
-    const { projectId, collaboratorId } = req.params;
-    console.log(`[PROJECT_CONTROLLER] Removing collaborator from project: ${projectId}`);
-
-    const project = await projectService.removeCollaborator(
-        projectId,
-        collaboratorId,
-        req.user._id,
-        {
-            ipAddress: req.ip,
-            userAgent: req.get('user-agent'),
-            requestId: req.id
-        }
-    );
-
-    console.log(`[PROJECT_CONTROLLER] Collaborator removed successfully: ${collaboratorId}`);
-
-    return res.json({
-        success: true,
-        message: 'Collaborator removed successfully',
-        data: { project }
-    });
-});
-
-const grantProjectAccess = catchAsync(async (req, res) => {
-    const { projectId } = req.params;
-    const { userId, accessLevel, permissions } = req.body;
-    console.log(`[PROJECT_CONTROLLER] Granting project access: ${projectId}`);
-
-    if (!userId) {
-        console.warn(`[PROJECT_CONTROLLER] Grant access failed: User ID missing`);
-        return res.status(400).json({
-            success: false,
-            message: 'User ID is required',
-            code: 'USER_ID_REQUIRED'
-        });
-    }
-
-    const projectAccess = new ProjectAccess({
-        project: projectId,
-        user: userId,
-        accessLevel: accessLevel || 'view',
-        permissions: permissions || {},
-        grantedBy: req.user._id,
-        status: 'active'
-    });
-
-    await projectAccess.save();
-
-    await AuditLog.create({
-        user: req.user._id,
-        action: 'access_granted',
-        actionCategory: 'project',
-        entityType: 'project',
-        entityId: projectId,
-        status: 'success',
-        severity: 'info',
-        details: {
-            description: `Project access granted`,
-            grantedTo: userId,
-            accessLevel: accessLevel || 'view'
-        },
-        affectedUsers: [userId],
-        ipAddress: req.ip,
-        userAgent: req.get('user-agent'),
-        requestId: req.id
-    });
-
-    console.log(`[PROJECT_CONTROLLER] Project access granted successfully: ${userId}`);
-
-    return res.status(201).json({
-        success: true,
-        message: 'Project access granted successfully',
-        data: { projectAccess }
-    });
-});
-
-const revokeProjectAccess = catchAsync(async (req, res) => {
-    const { projectId, accessId } = req.params;
-    const { reason } = req.body;
-    console.log(`[PROJECT_CONTROLLER] Revoking project access: ${accessId}`);
-
-    const projectAccess = await ProjectAccess.findById(accessId);
-
-    if (!projectAccess) {
-        console.warn(`[PROJECT_CONTROLLER] Project access not found: ${accessId}`);
-        return res.status(404).json({
-            success: false,
-            message: 'Project access not found',
-            code: 'ACCESS_NOT_FOUND'
-        });
-    }
-
-    await projectAccess.revoke(req.user._id, reason);
-
-    await AuditLog.create({
-        user: req.user._id,
-        action: 'access_revoked',
-        actionCategory: 'project',
-        entityType: 'project',
-        entityId: projectId,
-        status: 'success',
-        severity: 'warning',
-        details: {
-            description: `Project access revoked`,
-            revokedFrom: projectAccess.user,
-            reason
-        },
-        affectedUsers: [projectAccess.user],
-        ipAddress: req.ip,
-        userAgent: req.get('user-agent'),
-        requestId: req.id
-    });
-
-    console.log(`[PROJECT_CONTROLLER] Project access revoked successfully: ${accessId}`);
-
-    return res.json({
-        success: true,
-        message: 'Project access revoked successfully',
-        data: { projectAccess }
-    });
-});
-
-const updateProjectAccess = catchAsync(async (req, res) => {
-    const { projectId, accessId } = req.params;
-    const { accessLevel, permissions } = req.body;
-    console.log(`[PROJECT_CONTROLLER] Updating project access: ${accessId}`);
-
-    const projectAccess = await ProjectAccess.findById(accessId);
-
-    if (!projectAccess) {
-        console.warn(`[PROJECT_CONTROLLER] Project access not found: ${accessId}`);
-        return res.status(404).json({
-            success: false,
-            message: 'Project access not found',
-            code: 'ACCESS_NOT_FOUND'
-        });
-    }
-
-    if (accessLevel) {
-        projectAccess.accessLevel = accessLevel;
-    }
-
-    if (permissions) {
-        projectAccess.permissions = { ...projectAccess.permissions, ...permissions };
-    }
-
-    await projectAccess.save();
-
-    await AuditLog.create({
-        user: req.user._id,
-        action: 'permission_changed',
-        actionCategory: 'project',
-        entityType: 'project',
-        entityId: projectId,
-        status: 'success',
-        severity: 'info',
-        details: {
-            description: `Project access updated`,
-            updatedFor: projectAccess.user,
-            newAccessLevel: accessLevel
-        },
-        affectedUsers: [projectAccess.user],
-        ipAddress: req.ip,
-        userAgent: req.get('user-agent'),
-        requestId: req.id
-    });
-
-    console.log(`[PROJECT_CONTROLLER] Project access updated successfully: ${accessId}`);
-
-    return res.json({
-        success: true,
-        message: 'Project access updated successfully',
-        data: { projectAccess }
-    });
-});
-
-const getProjectAccessList = catchAsync(async (req, res) => {
-    const { projectId } = req.params;
-    const { page = 1, limit = 20, status } = req.query;
-    console.log(`[PROJECT_CONTROLLER] Fetching access list for project: ${projectId}`);
-
-    const query = { project: projectId };
+    const { page = 1, limit = 10, status, search } = req.query;
+
+    const query = {
+        $or: [
+            { owner: req.user._id },
+            { 'collaborators.user': req.user._id }
+        ],
+        isDeleted: false
+    };
 
     if (status) {
         query.status = status;
     }
 
+    if (search) {
+        query.$or = [
+            { name: { $regex: search, $options: 'i' } },
+            { description: { $regex: search, $options: 'i' } }
+        ];
+    }
+
     const skip = (page - 1) * limit;
 
-    const accessList = await ProjectAccess.find(query)
-        .populate('user', 'firstName lastName email avatar')
-        .populate('grantedBy', 'firstName lastName email')
-        .sort({ grantedAt: -1 })
+    const projects = await Project.find(query)
+        .populate('owner', 'firstName lastName email avatar')
+        .populate('team', 'name avatar')
+        .select('-repository.accessToken -testConfig.environmentVariables')
+        .sort({ createdAt: -1 })
         .skip(skip)
-        .limit(parseInt(limit));
+        .limit(parseInt(limit))
+        .lean();
 
-    const total = await ProjectAccess.countDocuments(query);
-
-    console.log(`[PROJECT_CONTROLLER] Access list fetched: ${accessList.length} of ${total}`);
-
-    return res.json({
-        success: true,
-        data: {
-            accessList,
-            pagination: {
-                total,
-                page: parseInt(page),
-                limit: parseInt(limit),
-                pages: Math.ceil(total / limit)
-            }
-        }
-    });
-});
-
-const searchProjects = catchAsync(async (req, res) => {
-    const { query, page = 1, limit = 20 } = req.query;
-    console.log(`[PROJECT_CONTROLLER] Searching projects with query: ${query}`);
-
-    if (!query) {
-        console.warn(`[PROJECT_CONTROLLER] Search failed: Query missing`);
-        return res.status(400).json({
-            success: false,
-            message: 'Search query is required',
-            code: 'QUERY_REQUIRED'
-        });
-    }
-
-    const { projects, total } = await projectService.searchProjects(query, req.user._id, {
-        skip: (page - 1) * limit,
-        limit: parseInt(limit)
-    });
-
-    console.log(`[PROJECT_CONTROLLER] Projects found: ${projects.length} of ${total}`);
+    const total = await Project.countDocuments(query);
 
     return res.json({
         success: true,
@@ -929,38 +544,178 @@ const searchProjects = catchAsync(async (req, res) => {
     });
 });
 
-const getProjectsByTags = catchAsync(async (req, res) => {
-    const { tags, page = 1, limit = 20 } = req.query;
-    console.log(`[PROJECT_CONTROLLER] Fetching projects by tags: ${tags}`);
+// Get folder structure tree for a project
+const getProjectFolderStructure = catchAsync(async (req, res) => {
+    const { projectId } = req.params;
 
-    if (!tags) {
-        console.warn(`[PROJECT_CONTROLLER] Fetch by tags failed: Tags missing`);
-        return res.status(400).json({
+    // Get root folder
+    const rootFolder = await TestFolder.findOne({
+        project: projectId,
+        type: 'root'
+    });
+
+    if (!rootFolder) {
+        return res.status(404).json({
             success: false,
-            message: 'Tags are required',
-            code: 'TAGS_REQUIRED'
+            message: 'Project folder structure not found',
+            code: 'FOLDER_NOT_FOUND'
         });
     }
 
-    const tagsArray = Array.isArray(tags) ? tags : tags.split(',').map(t => t.trim());
+    // Recursive function to build tree structure
+    const buildFolderTree = async (parentFolderId) => {
+        // Get all child folders
+        const childFolders = await TestFolder.find({
+            parentFolder: parentFolderId
+        }).select('_id name path type level description');
 
-    const { projects, total } = await projectService.getProjectsByTags(tagsArray, req.user._id, {
-        skip: (page - 1) * limit,
-        limit: parseInt(limit)
-    });
+        // Get all files in this folder
+        const files = await TestFile.find({
+            folder: parentFolderId
+        }).select('_id name fileName extension type language size lines');
 
-    console.log(`[PROJECT_CONTROLLER] Projects found by tags: ${projects.length} of ${total}`);
+        const folderTree = [];
+
+        // Add child folders
+        for (const folder of childFolders) {
+            const subTree = await buildFolderTree(folder._id);
+            folderTree.push({
+                id: folder._id,
+                name: folder.name,
+                path: folder.path,
+                type: 'folder',
+                folderType: folder.type,
+                level: folder.level,
+                description: folder.description,
+                children: subTree
+            });
+        }
+
+        // Add files
+        for (const file of files) {
+            folderTree.push({
+                id: file._id,
+                name: file.name,
+                fileName: file.fileName,
+                path: file.path,
+                type: 'file',
+                fileType: file.type,
+                extension: file.extension,
+                language: file.language,
+                size: file.size,
+                lines: file.lines
+            });
+        }
+
+        return folderTree;
+    };
+
+    const folderTree = await buildFolderTree(rootFolder._id);
 
     return res.json({
         success: true,
         data: {
-            projects,
-            pagination: {
-                total,
-                page: parseInt(page),
-                limit: parseInt(limit),
-                pages: Math.ceil(total / limit)
+            root: {
+                id: rootFolder._id,
+                name: rootFolder.name,
+                path: rootFolder.path,
+                type: 'folder',
+                folderType: 'root',
+                description: rootFolder.description,
+                children: folderTree
             }
         }
     });
 });
+
+// Get specific folder with its contents
+const getFolderContents = catchAsync(async (req, res) => {
+    const { projectId, folderId } = req.params;
+
+    const folder = await TestFolder.findOne({
+        _id: folderId,
+        project: projectId
+    });
+
+    if (!folder) {
+        return res.status(404).json({
+            success: false,
+            message: 'Folder not found',
+            code: 'FOLDER_NOT_FOUND'
+        });
+    }
+
+    // Get child folders
+    const childFolders = await TestFolder.find({
+        parentFolder: folderId
+    }).select('_id name path type level description');
+
+    // Get files in this folder
+    const files = await TestFile.find({
+        folder: folderId
+    }).select('_id name fileName extension type language size lines');
+
+    return res.json({
+        success: true,
+        data: {
+            folder: {
+                id: folder._id,
+                name: folder.name,
+                path: folder.path,
+                type: folder.type,
+                level: folder.level,
+                description: folder.description
+            },
+            subFolders: childFolders,
+            files: files
+        }
+    });
+});
+
+// Get folder structure summary (flat list)
+const getFolderStructureSummary = catchAsync(async (req, res) => {
+    const { projectId } = req.params;
+
+    const folders = await TestFolder.find({
+        project: projectId
+    }).select('_id name path type level parentFolder');
+
+    const files = await TestFile.find({
+        project: projectId
+    }).select('_id name fileName path extension type folder');
+
+    const stats = {
+        totalFolders: folders.length,
+        totalFiles: files.length,
+        foldersByType: {},
+        filesByExtension: {}
+    };
+
+    // Count by folder type
+    folders.forEach(f => {
+        stats.foldersByType[f.type] = (stats.foldersByType[f.type] || 0) + 1;
+    });
+
+    // Count by file extension
+    files.forEach(f => {
+        stats.filesByExtension[f.extension] = (stats.filesByExtension[f.extension] || 0) + 1;
+    });
+
+    return res.json({
+        success: true,
+        data: {
+            folders,
+            files,
+            stats
+        }
+    });
+});
+module.exports = {
+    createProject,
+    createProjectWithUnifiedStructure,
+    getProjectById,
+    getUserProjects,
+    getProjectFolderStructure,
+    getFolderContents,
+    getFolderStructureSummary
+};
