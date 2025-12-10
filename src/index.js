@@ -15,7 +15,6 @@ try {
 
     logEnvironmentInfo();
 
-    // SERVER START FUNCTION
     const startServer = async () => {
         try {
             console.log('[DATABASE] Connecting to MongoDB...');
@@ -37,7 +36,6 @@ try {
                 console.log('[WEBSOCKET] Ready');
             }
 
-            // SHUTDOWN HANDLERS
             const gracefulShutdown = async (signal) => {
                 console.log(`[SIGNAL] ${signal} received -> shutting down`);
                 server.close(async () => {

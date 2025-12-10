@@ -172,7 +172,7 @@ testFileSchema.index({ isDeleted: 1 });
 testFileSchema.index({ createdBy: 1 });
 testFileSchema.index({ lockedBy: 1 });
 
-testFileSchema.pre('save', function(next) {
+testFileSchema.pre('save', function (next) {
     if (this.isModified('content')) {
         this.size = Buffer.byteLength(this.content, 'utf-8');
         this.lines = this.content.split('\n').length;
@@ -181,30 +181,30 @@ testFileSchema.pre('save', function(next) {
     next();
 });
 
-testFileSchema.methods.lock = async function(userId) {
+testFileSchema.methods.lock = async function (userId) {
     this.lockedBy = userId;
     this.lockedAt = Date.now();
     await this.save();
 };
 
-testFileSchema.methods.unlock = async function() {
+testFileSchema.methods.unlock = async function () {
     this.lockedBy = undefined;
     this.lockedAt = undefined;
     await this.save();
 };
 
-testFileSchema.methods.isLocked = function() {
+testFileSchema.methods.isLocked = function () {
     return !!this.lockedBy;
 };
 
-testFileSchema.methods.canEdit = function(userId) {
+testFileSchema.methods.canEdit = function (userId) {
     if (!this.isEditable) return false;
     if (this.isSystemFile) return false;
     if (!this.lockedBy) return true;
     return this.lockedBy.toString() === userId.toString();
 };
 
-testFileSchema.methods.updateContent = async function(newContent, userId) {
+testFileSchema.methods.updateContent = async function (newContent, userId) {
     this.content = newContent;
     this.lastModifiedBy = userId;
     this.lastModifiedAt = Date.now();
@@ -212,14 +212,14 @@ testFileSchema.methods.updateContent = async function(newContent, userId) {
     await this.save();
 };
 
-testFileSchema.methods.softDelete = async function(userId) {
+testFileSchema.methods.softDelete = async function (userId) {
     this.isDeleted = true;
     this.deletedAt = Date.now();
     this.deletedBy = userId;
     await this.save();
 };
 
-testFileSchema.methods.restore = async function() {
+testFileSchema.methods.restore = async function () {
     this.isDeleted = false;
     this.deletedAt = undefined;
     this.deletedBy = undefined;

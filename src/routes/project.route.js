@@ -3,22 +3,41 @@ const router = express.Router();
 const projectController = require('../controllers/project.controller');
 const { protect } = require('../middlewares/auth.middleware');
 
-console.log('[ROUTES] Loading Project routes');
+// Log all requests to this router
+router.use((req, res, next) => {
+    console.log(`[PROJECT_ROUTE] ${req.method} ${req.originalUrl}`);
+    next();
+});
 
-router.use(protect);
+// Create new project with auto-generated structure
+// POST /api/v1/projects
+router.post('/', protect, projectController.createProject);
 
-router.post('/create', projectController.createProject);
+// Get all projects (for current authenticated user)
+// GET /api/v1/projects
+router.get('/', protect, (req, res) => {
+    // Redirect to user projects using authenticated user ID
+    return projectController.getUserProjects(req, res);
+});
 
-router.post('/create-with-unified-structure', projectController.createProjectWithUnifiedStructure);
+// Get user's projects
+// GET /api/v1/projects/user/:userId
+router.get('/user/:userId', protect, projectController.getUserProjects);
 
-router.get('/', projectController.getUserProjects);
+// Get team's projects
+// GET /api/v1/projects/team/:teamId
+router.get('/team/:teamId', protect, projectController.getTeamProjects);
 
-router.get('/:projectId', projectController.getProjectById);
+// Get complete project with folder hierarchy
+// GET /api/v1/projects/:projectId
+router.get('/:projectId', protect, projectController.getProjectById);
 
-router.get('/:projectId/folder-structure', projectController.getProjectFolderStructure);
-router.get('/:projectId/folder/:folderId', projectController.getFolderContents);
-router.get('/:projectId/folder-summary', projectController.getFolderStructureSummary);
+// Get folder/file tree structure for project
+// GET /api/v1/projects/:projectId/hierarchy
+router.get('/:projectId/hierarchy', protect, projectController.getProjectHierarchy);
 
-console.log('[ROUTES] Project routes loaded successfully');
+// Get complete project configuration
+// GET /api/v1/projects/:projectId/config
+router.get('/:projectId/config', protect, projectController.getProjectConfig);
 
 module.exports = router;

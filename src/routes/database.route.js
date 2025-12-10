@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router({ mergeParams: true });
-const databaseController = require('../controllers/database.controller');
+const databaseController = require('../controllers/database.connection.controller');
 const { protect, authorizeProjectAccess } = require('../middlewares/auth.middleware');
 
 console.log('[ROUTES] Loading Database routes');

@@ -2,7 +2,7 @@ const Project = require('../models/project.model');
 const ApiEndpoint = require('../models/api.endpoint.model');
 const AuditLog = require('../models/audit.model');
 const { catchAsync } = require('../utils/error.util');
-const codeAnalysisService = require('../services/ai/code.analysis.service');
+const codeAnalysisService = require('../services/ai/code.analysis.sevice');
 
 const startAnalysis = catchAsync(async (req, res) => {
     const { projectId } = req.body;
