@@ -114,12 +114,6 @@ docker-compose.override.yml
 pnpm-lock.yaml
 bun.lockb
 
-# AI and ML models (if storing locally)
-models/
-*.h5
-*.pkl
-*.joblib
-
 # Test execution artifacts
 test-output/
 allure-results/

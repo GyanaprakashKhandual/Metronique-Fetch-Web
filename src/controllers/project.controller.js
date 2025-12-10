@@ -2,6 +2,7 @@ const Project = require('../models/project.model');
 const TestFolder = require('../models/test.folder.model');
 const TestFile = require('../models/test.file.model');
 const AuditLog = require('../models/audit.model');
+const DatabaseConnection = require('../models/database.connection.model');
 const { catchAsync } = require('../utils/error.util');
 
 const UNIFIED_STRUCTURE = {
@@ -11,43 +12,36 @@ const UNIFIED_STRUCTURE = {
         { name: 'src/test/java/com/api/tests/integration', path: '/src/test/java/com/api/tests/integration', type: 'test', level: 2 },
         { name: 'src/test/java/com/api/tests/smoke', path: '/src/test/java/com/api/tests/smoke', type: 'test', level: 2 },
         { name: 'src/test/java/com/api/tests/regression', path: '/src/test/java/com/api/tests/regression', type: 'test', level: 2 },
-
         { name: 'src/test/java/com/api/stepdefinitions', path: '/src/test/java/com/api/stepdefinitions', type: 'step', level: 1 },
         { name: 'src/test/java/com/api/stepdefinitions/api', path: '/src/test/java/com/api/stepdefinitions/api', type: 'step', level: 2 },
         { name: 'src/test/java/com/api/stepdefinitions/database', path: '/src/test/java/com/api/stepdefinitions/database', type: 'step', level: 2 },
         { name: 'src/test/java/com/api/stepdefinitions/auth', path: '/src/test/java/com/api/stepdefinitions/auth', type: 'step', level: 2 },
-
         { name: 'src/test/java/com/api/hooks', path: '/src/test/java/com/api/hooks', type: 'hook', level: 1 },
         { name: 'src/test/java/com/api/runners', path: '/src/test/java/com/api/runners', type: 'runner', level: 1 },
-
         { name: 'src/test/java/com/api/utils', path: '/src/test/java/com/api/utils', type: 'utility', level: 1 },
         { name: 'src/test/java/com/api/utils/api', path: '/src/test/java/com/api/utils/api', type: 'utility', level: 2 },
         { name: 'src/test/java/com/api/utils/database', path: '/src/test/java/com/api/utils/database', type: 'utility', level: 2 },
         { name: 'src/test/java/com/api/utils/auth', path: '/src/test/java/com/api/utils/auth', type: 'utility', level: 2 },
         { name: 'src/test/java/com/api/utils/common', path: '/src/test/java/com/api/utils/common', type: 'utility', level: 2 },
-
         { name: 'src/test/java/com/api/config', path: '/src/test/java/com/api/config', type: 'config', level: 1 },
         { name: 'src/test/java/com/api/base', path: '/src/test/java/com/api/base', type: 'base', level: 1 },
         { name: 'src/test/java/com/api/listeners', path: '/src/test/java/com/api/listeners', type: 'listener', level: 1 },
         { name: 'src/test/java/com/api/helpers', path: '/src/test/java/com/api/helpers', type: 'helper', level: 1 },
         { name: 'src/test/java/com/api/dataproviders', path: '/src/test/java/com/api/dataproviders', type: 'provider', level: 1 },
-
         { name: 'src/test/java/com/api/models', path: '/src/test/java/com/api/models', type: 'model', level: 1 },
         { name: 'src/test/java/com/api/models/request', path: '/src/test/java/com/api/models/request', type: 'model', level: 2 },
         { name: 'src/test/java/com/api/models/response', path: '/src/test/java/com/api/models/response', type: 'model', level: 2 },
-
         { name: 'src/test/resources', path: '/src/test/resources', type: 'resource', level: 1 },
         { name: 'src/test/resources/features', path: '/src/test/resources/features', type: 'feature', level: 2 },
         { name: 'src/test/resources/features/api', path: '/src/test/resources/features/api', type: 'feature', level: 3 },
         { name: 'src/test/resources/features/database', path: '/src/test/resources/features/database', type: 'feature', level: 3 },
         { name: 'src/test/resources/features/auth', path: '/src/test/resources/features/auth', type: 'feature', level: 3 },
         { name: 'src/test/resources/features/integration', path: '/src/test/resources/features/integration', type: 'feature', level: 3 },
-
         { name: 'src/test/resources/testdata', path: '/src/test/resources/testdata', type: 'resource', level: 2 },
         { name: 'src/test/resources/config', path: '/src/test/resources/config', type: 'resource', level: 2 },
         { name: 'src/test/resources/schemas', path: '/src/test/resources/schemas', type: 'resource', level: 2 },
         { name: 'src/test/resources/schemas/request', path: '/src/test/resources/schemas/request', type: 'resource', level: 3 },
-        { name: 'src/test/resources/schemas/response', path: '/src/test/resources/schemas/response', type: 'resource', level: 3 },
+        { name: 'src/test/resources/schemas/response', path: '/src/test/resources/schemas/response', type: 'resource', level: 3 }
     ],
 
     javaFiles: {
@@ -91,7 +85,15 @@ const UNIFIED_STRUCTURE = {
 };
 
 const createProjectWithUnifiedStructure = catchAsync(async (req, res) => {
-    const { name, description, team, visibility } = req.body;
+    const {
+        name,
+        description,
+        team,
+        visibility,
+        repository,
+        technology,
+        databaseConnections
+    } = req.body;
 
     if (!name) {
         return res.status(400).json({
@@ -108,6 +110,26 @@ const createProjectWithUnifiedStructure = catchAsync(async (req, res) => {
         team: team || null,
         visibility: visibility || 'private',
         status: 'active',
+        repository: repository ? {
+            connected: repository.connected || false,
+            url: repository.url,
+            fullName: repository.fullName,
+            owner: repository.owner,
+            name: repository.name,
+            branch: repository.branch || 'main',
+            lastSync: repository.lastSync || null,
+            accessToken: repository.accessToken,
+            webhookId: repository.webhookId,
+            webhookSecret: repository.webhookSecret
+        } : {
+            connected: false
+        },
+        technology: technology || {
+            language: 'java',
+            framework: 'spring-boot',
+            database: ['mongodb'],
+            orm: 'hibernate'
+        },
         testConfig: {
             framework: 'unified',
             language: 'java',
@@ -127,6 +149,27 @@ const createProjectWithUnifiedStructure = catchAsync(async (req, res) => {
             totalExecutions: 0
         }
     });
+
+    let dbConnections = [];
+    if (databaseConnections && Array.isArray(databaseConnections)) {
+        for (const dbConfig of databaseConnections) {
+            const dbConnection = new DatabaseConnection({
+                project: project._id,
+                name: dbConfig.name,
+                type: dbConfig.type,
+                host: dbConfig.host,
+                port: dbConfig.port,
+                username: dbConfig.username,
+                password: dbConfig.password,
+                database: dbConfig.database,
+                connectionString: dbConfig.connectionString,
+                createdBy: req.user._id
+            });
+            const saved = await dbConnection.save();
+            dbConnections.push(saved._id);
+        }
+        project.databaseConnections = dbConnections;
+    }
 
     await project.save();
 
@@ -344,7 +387,14 @@ public class ${fileName.replace('.java', '')} {
         entityId: project._id,
         status: 'success',
         severity: 'info',
-        details: { name, framework: 'unified', totalFolders, totalFiles },
+        details: {
+            name,
+            framework: 'unified',
+            totalFolders,
+            totalFiles,
+            repositoryConnected: repository?.connected || false,
+            databasesConnected: dbConnections.length
+        },
         ipAddress: req.ip,
         userAgent: req.get('user-agent'),
         requestId: req.id
@@ -362,6 +412,9 @@ public class ${fileName.replace('.java', '')} {
                 framework: 'unified',
                 integrated: ['Cucumber', 'REST Assured', 'TestNG'],
                 owner: project.owner,
+                repository: project.repository,
+                technology: project.technology,
+                databaseConnections: dbConnections,
                 createdAt: project.createdAt,
                 structure: { totalFolders, totalFiles, rootPath: rootFolder.path }
             }
@@ -370,7 +423,15 @@ public class ${fileName.replace('.java', '')} {
 });
 
 const createProject = catchAsync(async (req, res) => {
-    const { name, description, team, visibility } = req.body;
+    const {
+        name,
+        description,
+        team,
+        visibility,
+        repository,
+        technology,
+        databaseConnections
+    } = req.body;
 
     if (!name) {
         return res.status(400).json({
@@ -387,6 +448,26 @@ const createProject = catchAsync(async (req, res) => {
         team: team || null,
         visibility: visibility || 'private',
         status: 'draft',
+        repository: repository ? {
+            connected: repository.connected || false,
+            url: repository.url,
+            fullName: repository.fullName,
+            owner: repository.owner,
+            name: repository.name,
+            branch: repository.branch || 'main',
+            lastSync: repository.lastSync || null,
+            accessToken: repository.accessToken,
+            webhookId: repository.webhookId,
+            webhookSecret: repository.webhookSecret
+        } : {
+            connected: false
+        },
+        technology: technology || {
+            language: 'java',
+            framework: 'spring-boot',
+            database: ['mongodb'],
+            orm: 'hibernate'
+        },
         testConfig: {
             framework: 'rest-assured',
             language: 'java',
@@ -406,6 +487,27 @@ const createProject = catchAsync(async (req, res) => {
             totalExecutions: 0
         }
     });
+
+    let dbConnections = [];
+    if (databaseConnections && Array.isArray(databaseConnections)) {
+        for (const dbConfig of databaseConnections) {
+            const dbConnection = new DatabaseConnection({
+                project: project._id,
+                name: dbConfig.name,
+                type: dbConfig.type,
+                host: dbConfig.host,
+                port: dbConfig.port,
+                username: dbConfig.username,
+                password: dbConfig.password,
+                database: dbConfig.database,
+                connectionString: dbConfig.connectionString,
+                createdBy: req.user._id
+            });
+            const saved = await dbConnection.save();
+            dbConnections.push(saved._id);
+        }
+        project.databaseConnections = dbConnections;
+    }
 
     await project.save();
 
@@ -440,7 +542,12 @@ const createProject = catchAsync(async (req, res) => {
         entityId: project._id,
         status: 'success',
         severity: 'info',
-        details: { name, team },
+        details: {
+            name,
+            team,
+            repositoryConnected: repository?.connected || false,
+            databasesConnected: dbConnections.length
+        },
         ipAddress: req.ip,
         userAgent: req.get('user-agent'),
         requestId: req.id
@@ -457,6 +564,9 @@ const createProject = catchAsync(async (req, res) => {
                 status: project.status,
                 owner: project.owner,
                 team: project.team,
+                repository: project.repository,
+                technology: project.technology,
+                databaseConnections: dbConnections,
                 createdAt: project.createdAt
             }
         }
@@ -469,6 +579,7 @@ const getProjectById = catchAsync(async (req, res) => {
     const project = await Project.findById(projectId)
         .populate('owner', 'firstName lastName email avatar')
         .populate('team', 'name avatar')
+        .populate('databaseConnections')
         .lean();
 
     if (!project) {
@@ -522,6 +633,7 @@ const getUserProjects = catchAsync(async (req, res) => {
     const projects = await Project.find(query)
         .populate('owner', 'firstName lastName email avatar')
         .populate('team', 'name avatar')
+        .populate('databaseConnections')
         .select('-repository.accessToken -testConfig.environmentVariables')
         .sort({ createdAt: -1 })
         .skip(skip)
@@ -544,178 +656,9 @@ const getUserProjects = catchAsync(async (req, res) => {
     });
 });
 
-// Get folder structure tree for a project
-const getProjectFolderStructure = catchAsync(async (req, res) => {
-    const { projectId } = req.params;
-
-    // Get root folder
-    const rootFolder = await TestFolder.findOne({
-        project: projectId,
-        type: 'root'
-    });
-
-    if (!rootFolder) {
-        return res.status(404).json({
-            success: false,
-            message: 'Project folder structure not found',
-            code: 'FOLDER_NOT_FOUND'
-        });
-    }
-
-    // Recursive function to build tree structure
-    const buildFolderTree = async (parentFolderId) => {
-        // Get all child folders
-        const childFolders = await TestFolder.find({
-            parentFolder: parentFolderId
-        }).select('_id name path type level description');
-
-        // Get all files in this folder
-        const files = await TestFile.find({
-            folder: parentFolderId
-        }).select('_id name fileName extension type language size lines');
-
-        const folderTree = [];
-
-        // Add child folders
-        for (const folder of childFolders) {
-            const subTree = await buildFolderTree(folder._id);
-            folderTree.push({
-                id: folder._id,
-                name: folder.name,
-                path: folder.path,
-                type: 'folder',
-                folderType: folder.type,
-                level: folder.level,
-                description: folder.description,
-                children: subTree
-            });
-        }
-
-        // Add files
-        for (const file of files) {
-            folderTree.push({
-                id: file._id,
-                name: file.name,
-                fileName: file.fileName,
-                path: file.path,
-                type: 'file',
-                fileType: file.type,
-                extension: file.extension,
-                language: file.language,
-                size: file.size,
-                lines: file.lines
-            });
-        }
-
-        return folderTree;
-    };
-
-    const folderTree = await buildFolderTree(rootFolder._id);
-
-    return res.json({
-        success: true,
-        data: {
-            root: {
-                id: rootFolder._id,
-                name: rootFolder.name,
-                path: rootFolder.path,
-                type: 'folder',
-                folderType: 'root',
-                description: rootFolder.description,
-                children: folderTree
-            }
-        }
-    });
-});
-
-// Get specific folder with its contents
-const getFolderContents = catchAsync(async (req, res) => {
-    const { projectId, folderId } = req.params;
-
-    const folder = await TestFolder.findOne({
-        _id: folderId,
-        project: projectId
-    });
-
-    if (!folder) {
-        return res.status(404).json({
-            success: false,
-            message: 'Folder not found',
-            code: 'FOLDER_NOT_FOUND'
-        });
-    }
-
-    // Get child folders
-    const childFolders = await TestFolder.find({
-        parentFolder: folderId
-    }).select('_id name path type level description');
-
-    // Get files in this folder
-    const files = await TestFile.find({
-        folder: folderId
-    }).select('_id name fileName extension type language size lines');
-
-    return res.json({
-        success: true,
-        data: {
-            folder: {
-                id: folder._id,
-                name: folder.name,
-                path: folder.path,
-                type: folder.type,
-                level: folder.level,
-                description: folder.description
-            },
-            subFolders: childFolders,
-            files: files
-        }
-    });
-});
-
-// Get folder structure summary (flat list)
-const getFolderStructureSummary = catchAsync(async (req, res) => {
-    const { projectId } = req.params;
-
-    const folders = await TestFolder.find({
-        project: projectId
-    }).select('_id name path type level parentFolder');
-
-    const files = await TestFile.find({
-        project: projectId
-    }).select('_id name fileName path extension type folder');
-
-    const stats = {
-        totalFolders: folders.length,
-        totalFiles: files.length,
-        foldersByType: {},
-        filesByExtension: {}
-    };
-
-    // Count by folder type
-    folders.forEach(f => {
-        stats.foldersByType[f.type] = (stats.foldersByType[f.type] || 0) + 1;
-    });
-
-    // Count by file extension
-    files.forEach(f => {
-        stats.filesByExtension[f.extension] = (stats.filesByExtension[f.extension] || 0) + 1;
-    });
-
-    return res.json({
-        success: true,
-        data: {
-            folders,
-            files,
-            stats
-        }
-    });
-});
 module.exports = {
     createProject,
     createProjectWithUnifiedStructure,
     getProjectById,
-    getUserProjects,
-    getProjectFolderStructure,
-    getFolderContents,
-    getFolderStructureSummary
+    getUserProjects
 };
