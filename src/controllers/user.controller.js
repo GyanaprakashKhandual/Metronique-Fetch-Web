@@ -415,6 +415,8 @@ const login = catchAsync(async (req, res) => {
         success: true,
         message: 'Login successful',
         data: {
+            accessToken,
+            refreshToken,
             user: {
                 id: user._id,
                 email: user.email,

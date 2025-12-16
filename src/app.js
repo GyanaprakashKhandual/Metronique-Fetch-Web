@@ -116,68 +116,68 @@ try {
     console.error('[ROUTES_ERROR] Stack:', err.stack);
 }
 
-try {
-    console.log('[ROUTES] Loading repository routes...');
-    const repositoryRoutes = require('./routes/repository.route');
-    app.use('/api/v1/projects', repositoryRoutes);
-    console.log('[ROUTES] Repository routes loaded successfully');
-} catch (err) {
-    console.error('[ROUTES_ERROR] repository.route:', err.message);
-}
+// try {
+//     console.log('[ROUTES] Loading repository routes...');
+//     const repositoryRoutes = require('./routes/repository.route');
+//     app.use('/api/v1/projects', repositoryRoutes);
+//     console.log('[ROUTES] Repository routes loaded successfully');
+// } catch (err) {
+//     console.error('[ROUTES_ERROR] repository.route:', err.message);
+// }
 
-try {
-    console.log('[ROUTES] Loading database routes...');
-    const databaseRoutes = require('./routes/database.route');
-    app.use('/api/v1/projects', databaseRoutes);
-    console.log('[ROUTES] Database routes loaded successfully');
-} catch (err) {
-    console.error('[ROUTES_ERROR] database.route:', err.message);
-}
+// try {
+//     console.log('[ROUTES] Loading database routes...');
+//     const databaseRoutes = require('./routes/database.route');
+//     app.use('/api/v1/projects', databaseRoutes);
+//     console.log('[ROUTES] Database routes loaded successfully');
+// } catch (err) {
+//     console.error('[ROUTES_ERROR] database.route:', err.message);
+// }
 
-try {
-    console.log('[ROUTES] Loading AI analysis routes...');
-    const aiAnalysisRoutes = require('./routes/ai.analysis.route');
-    app.use('/api/v1/projects', aiAnalysisRoutes);
-    console.log('[ROUTES] AI analysis routes loaded successfully');
-} catch (err) {
-    console.error('[ROUTES_ERROR] ai.analysis.route:', err.message);
-}
+// try {
+//     console.log('[ROUTES] Loading AI analysis routes...');
+//     const aiAnalysisRoutes = require('./routes/ai.analysis.route');
+//     app.use('/api/v1/projects', aiAnalysisRoutes);
+//     console.log('[ROUTES] AI analysis routes loaded successfully');
+// } catch (err) {
+//     console.error('[ROUTES_ERROR] ai.analysis.route:', err.message);
+// }
 
-try {
-    console.log('[ROUTES] Loading test script routes...');
-    const testScriptRoutes = require('./routes/test.script.route');
-    app.use('/api/v1/projects', testScriptRoutes);
-    console.log('[ROUTES] Test script routes loaded successfully');
-} catch (err) {
-    console.error('[ROUTES_ERROR] test.script.route:', err.message);
-}
+// try {
+//     console.log('[ROUTES] Loading test script routes...');
+//     const testScriptRoutes = require('./routes/test.script.route');
+//     app.use('/api/v1/projects', testScriptRoutes);
+//     console.log('[ROUTES] Test script routes loaded successfully');
+// } catch (err) {
+//     console.error('[ROUTES_ERROR] test.script.route:', err.message);
+// }
 
-try {
-    console.log('[ROUTES] Loading test folder routes...');
-    const testFolderRoutes = require('./routes/test.folder.route');
-    app.use('/api/v1/projects', testFolderRoutes);
-    console.log('[ROUTES] Test folder routes loaded successfully');
-} catch (err) {
-    console.error('[ROUTES_ERROR] test.folder.route:', err.message);
-}
+// try {
+//     console.log('[ROUTES] Loading test folder routes...');
+//     const testFolderRoutes = require('./routes/test.folder.route');
+//     app.use('/api/v1/projects', testFolderRoutes);
+//     console.log('[ROUTES] Test folder routes loaded successfully');
+// } catch (err) {
+//     console.error('[ROUTES_ERROR] test.folder.route:', err.message);
+// }
 
-try {
-    console.log('[ROUTES] Loading test file routes...');
-    const testFileRoutes = require('./routes/test.file.route');
-    app.use('/api/v1/projects', testFileRoutes);
-    console.log('[ROUTES] Test file routes loaded successfully');
-} catch (err) {
-    console.error('[ROUTES_ERROR] test.file.route:', err.message);
-}
+// try {
+//     console.log('[ROUTES] Loading test file routes...');
+//     const testFileRoutes = require('./routes/test.file.route');
+//     app.use('/api/v1/projects', testFileRoutes);
+//     console.log('[ROUTES] Test file routes loaded successfully');
+// } catch (err) {
+//     console.error('[ROUTES_ERROR] test.file.route:', err.message);
+// }
 
-try {
-    console.log('[ROUTES] Loading test execution routes...');
-    const testExecutionRoutes = require('./routes/test.execution.route');
-    app.use('/api/v1/projects', testExecutionRoutes);
-    console.log('[ROUTES] Test execution routes loaded successfully');
-} catch (err) {
-    console.error('[ROUTES_ERROR] test.execution.route:', err.message);
-}
+// try {
+//     console.log('[ROUTES] Loading test execution routes...');
+//     const testExecutionRoutes = require('./routes/test.execution.route');
+//     app.use('/api/v1/projects', testExecutionRoutes);
+//     console.log('[ROUTES] Test execution routes loaded successfully');
+// } catch (err) {
+//     console.error('[ROUTES_ERROR] test.execution.route:', err.message);
+// }
 
 console.log('[ROUTES] All routes registered');
 

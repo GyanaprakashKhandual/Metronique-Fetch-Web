@@ -1,43 +1,34 @@
 const express = require('express');
 const router = express.Router();
 const projectController = require('../controllers/project.controller');
-const { protect } = require('../middlewares/auth.middleware');
+const { protect } = require('../middlewares/auth.middleware'); // ADD THIS LINE
 
-// Log all requests to this router
-router.use((req, res, next) => {
-    console.log(`[PROJECT_ROUTE] ${req.method} ${req.originalUrl}`);
-    next();
-});
+/**
+ * Apply authentication middleware to ALL project routes
+ */
+router.use(protect); // THIS LINE IS CRITICAL!
 
-// Create new project with auto-generated structure
-// POST /api/v1/projects
-router.post('/', protect, projectController.createProject);
+/**
+ * @route   POST /api/projects
+ * @desc    Create a new project with auto-generated test environment
+ * @access  Private
+ * @body    { name: string, description?: string, visibility?: 'private'|'team'|'public' }
+ */
+router.post('/', projectController.createProject);
 
-// Get all projects (for current authenticated user)
-// GET /api/v1/projects
-router.get('/', protect, (req, res) => {
-    // Redirect to user projects using authenticated user ID
-    return projectController.getUserProjects(req, res);
-});
+/**
+ * @route   GET /api/projects/:projectId/structure
+ * @desc    Get complete project hierarchy (folder and file structure)
+ * @access  Private
+ */
+router.get('/:projectId/structure', projectController.getProjectStructure);
 
-// Get user's projects
-// GET /api/v1/projects/user/:userId
-router.get('/user/:userId', protect, projectController.getUserProjects);
-
-// Get team's projects
-// GET /api/v1/projects/team/:teamId
-router.get('/team/:teamId', protect, projectController.getTeamProjects);
-
-// Get complete project with folder hierarchy
-// GET /api/v1/projects/:projectId
-router.get('/:projectId', protect, projectController.getProjectById);
-
-// Get folder/file tree structure for project
-// GET /api/v1/projects/:projectId/hierarchy
-router.get('/:projectId/hierarchy', protect, projectController.getProjectHierarchy);
-
-// Get complete project configuration
-// GET /api/v1/projects/:projectId/config
-router.get('/:projectId/config', protect, projectController.getProjectConfig);
+/**
+ * @route   POST /api/projects/:projectId/structure/add
+ * @desc    Add file or folder to project structure
+ * @access  Private
+ * @body    { parentPath: string, name: string, type: 'file'|'folder', content?: string }
+ */
+router.post('/:projectId/structure/add', projectController.addToStructure);
 
 module.exports = router;

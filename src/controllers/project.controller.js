@@ -1,747 +1,765 @@
 const Project = require('../models/project.model');
-const TestFolder = require('../models/test.folder.model');
-const TestFile = require('../models/test.file.model');
-const ProjectService = require('../services/project/project.service');
-const ProjectConfigService = require('../services/project/project.config.service');
-const { catchAsync } = require('../utils/error.util');
 const fs = require('fs').promises;
 const path = require('path');
 
-const TEMPLATE_FILES = {
-    'Base.java': `package com.{company}.{project}.base;
+class ProjectController {
+    /**
+     * Create a new project with auto-generated test environment
+     * POST /api/projects
+     */
+    async createProject(req, res) {
+        try {
+            const { name, description, visibility = 'private' } = req.body;
+            const userId = req.user.id; // Assuming user is authenticated
 
-import io.restassured.RestAssured;
-import io.restassured.response.Response;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.AfterClass;
+            if (!name) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Project name is required'
+                });
+            }
 
-public class Base {
-    protected String baseURI;
-    protected String basePath;
+            // Create slug from project name
+            const slug = name
+                .toLowerCase()
+                .replace(/[^a-z0-9]+/g, '-')
+                .replace(/^-+|-+$/g, '') + '-' + Date.now();
 
-    @BeforeClass
-    public void setup() {
-        baseURI = System.getProperty("baseURI", "http://localhost:8080");
-        basePath = "/api";
-        RestAssured.baseURI = baseURI;
-        RestAssured.basePath = basePath;
+            // Define test environment structure using direct method calls
+            const testStructure = {
+                name: 'test-automation',
+                type: 'folder',
+                children: [
+                    {
+                        name: 'src',
+                        type: 'folder',
+                        children: [
+                            {
+                                name: 'test',
+                                type: 'folder',
+                                children: [
+                                    {
+                                        name: 'java',
+                                        type: 'folder',
+                                        children: [
+                                            {
+                                                name: 'com',
+                                                type: 'folder',
+                                                children: [
+                                                    {
+                                                        name: 'automation',
+                                                        type: 'folder',
+                                                        children: [
+                                                            {
+                                                                name: 'tests',
+                                                                type: 'folder',
+                                                                children: [
+                                                                    {
+                                                                        name: 'SampleTest.java',
+                                                                        type: 'file',
+                                                                        content: this.getSampleTestContent()
+                                                                    }
+                                                                ]
+                                                            },
+                                                            {
+                                                                name: 'pages',
+                                                                type: 'folder',
+                                                                children: [
+                                                                    {
+                                                                        name: 'BasePage.java',
+                                                                        type: 'file',
+                                                                        content: this.getBasePageContent()
+                                                                    }
+                                                                ]
+                                                            },
+                                                            {
+                                                                name: 'utils',
+                                                                type: 'folder',
+                                                                children: [
+                                                                    {
+                                                                        name: 'DriverManager.java',
+                                                                        type: 'file',
+                                                                        content: this.getDriverManagerContent()
+                                                                    },
+                                                                    {
+                                                                        name: 'ConfigReader.java',
+                                                                        type: 'file',
+                                                                        content: this.getConfigReaderContent()
+                                                                    }
+                                                                ]
+                                                            },
+                                                            {
+                                                                name: 'api',
+                                                                type: 'folder',
+                                                                children: [
+                                                                    {
+                                                                        name: 'RestAssuredHelper.java',
+                                                                        type: 'file',
+                                                                        content: this.getRestAssuredHelperContent()
+                                                                    },
+                                                                    {
+                                                                        name: 'ApiTest.java',
+                                                                        type: 'file',
+                                                                        content: this.getApiTestContent()
+                                                                    }
+                                                                ]
+                                                            },
+                                                            {
+                                                                name: 'runners',
+                                                                type: 'folder',
+                                                                children: [
+                                                                    {
+                                                                        name: 'TestRunner.java',
+                                                                        type: 'file',
+                                                                        content: this.getTestRunnerContent()
+                                                                    }
+                                                                ]
+                                                            }
+                                                        ]
+                                                    }
+                                                ]
+                                            }
+                                        ]
+                                    },
+                                    {
+                                        name: 'resources',
+                                        type: 'folder',
+                                        children: [
+                                            {
+                                                name: 'features',
+                                                type: 'folder',
+                                                children: [
+                                                    {
+                                                        name: 'sample.feature',
+                                                        type: 'file',
+                                                        content: this.getSampleFeatureContent()
+                                                    }
+                                                ]
+                                            },
+                                            {
+                                                name: 'config',
+                                                type: 'folder',
+                                                children: [
+                                                    {
+                                                        name: 'config.properties',
+                                                        type: 'file',
+                                                        content: this.getConfigPropertiesContent()
+                                                    }
+                                                ]
+                                            },
+                                            {
+                                                name: 'testng.xml',
+                                                type: 'file',
+                                                content: this.getTestNGXmlContent()
+                                            }
+                                        ]
+                                    }
+                                ]
+                            }
+                        ]
+                    },
+                    {
+                        name: 'pom.xml',
+                        type: 'file',
+                        content: this.getPomXmlContent(name)
+                    },
+                    {
+                        name: 'README.md',
+                        type: 'file',
+                        content: this.getReadmeContent(name)
+                    },
+                    {
+                        name: '.gitignore',
+                        type: 'file',
+                        content: this.getGitIgnoreContent()
+                    }
+                ]
+            };
+
+            // Count files and folders
+            const counts = this.countFilesAndFolders(testStructure);
+
+            // Create project in database
+            const project = new Project({
+                name,
+                slug,
+                description,
+                owner: userId,
+                visibility,
+                technology: {
+                    language: 'java',
+                    framework: 'spring-boot',
+                    database: ['mongodb'],
+                    orm: 'hibernate'
+                },
+                testConfig: {
+                    framework: 'unified',
+                    language: 'java',
+                    buildTool: 'maven',
+                    timeout: 30000,
+                    retryCount: 2,
+                    parallel: false,
+                    threadCount: 1
+                },
+                testFolder: {
+                    generated: true,
+                    generatedAt: new Date(),
+                    structure: testStructure,
+                    rootPath: `/projects/${slug}/test-automation`,
+                    totalFiles: counts.files,
+                    totalFolders: counts.folders
+                },
+                status: 'active'
+            });
+
+            // Save project to database
+            await project.save();
+
+            // Optionally: Create physical folder structure on server
+            // await this.createPhysicalStructure(testStructure, `/projects/${slug}`);
+
+            return res.status(201).json({
+                success: true,
+                message: 'Project created successfully with test environment',
+                data: {
+                    project: {
+                        id: project._id,
+                        name: project.name,
+                        slug: project.slug,
+                        description: project.description,
+                        visibility: project.visibility,
+                        testFolder: project.testFolder,
+                        createdAt: project.createdAt
+                    }
+                }
+            });
+
+        } catch (error) {
+            console.error('Error creating project:', error);
+            return res.status(500).json({
+                success: false,
+                message: 'Failed to create project',
+                error: error.message
+            });
+        }
     }
 
-    @AfterClass
-    public void tearDown() {
-        RestAssured.reset();
+    /**
+     * Get complete project hierarchy
+     * GET /api/projects/:projectId/structure
+     */
+    async getProjectStructure(req, res) {
+        try {
+            const { projectId } = req.params;
+            const userId = req.user.id;
+
+            // Find project
+            const project = await Project.findOne({
+                _id: projectId,
+                isDeleted: false
+            });
+
+            if (!project) {
+                return res.status(404).json({
+                    success: false,
+                    message: 'Project not found'
+                });
+            }
+
+            // Check access
+            const hasAccess = await project.hasAccess(userId);
+            if (!hasAccess) {
+                return res.status(403).json({
+                    success: false,
+                    message: 'You do not have access to this project'
+                });
+            }
+
+            // Return complete structure
+            return res.status(200).json({
+                success: true,
+                data: {
+                    projectId: project._id,
+                    projectName: project.name,
+                    rootPath: project.testFolder.rootPath,
+                    structure: project.testFolder.structure,
+                    stats: {
+                        totalFiles: project.testFolder.totalFiles,
+                        totalFolders: project.testFolder.totalFolders,
+                        generated: project.testFolder.generated,
+                        generatedAt: project.testFolder.generatedAt
+                    }
+                }
+            });
+
+        } catch (error) {
+            console.error('Error fetching project structure:', error);
+            return res.status(500).json({
+                success: false,
+                message: 'Failed to fetch project structure',
+                error: error.message
+            });
+        }
     }
 
-    protected Response get(String endpoint) {
-        return RestAssured.given().when().get(endpoint);
+    /**
+     * Add file or folder to project structure
+     * POST /api/projects/:projectId/structure/add
+     */
+    async addToStructure(req, res) {
+        try {
+            const { projectId } = req.params;
+            const { parentPath, name, type, content = '' } = req.body;
+            const userId = req.user.id;
+
+            if (!name || !type) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Name and type are required'
+                });
+            }
+
+            if (!['file', 'folder'].includes(type)) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Type must be either "file" or "folder"'
+                });
+            }
+
+            // Find project
+            const project = await Project.findOne({
+                _id: projectId,
+                isDeleted: false
+            });
+
+            if (!project) {
+                return res.status(404).json({
+                    success: false,
+                    message: 'Project not found'
+                });
+            }
+
+            // Check access
+            const hasAccess = await project.hasAccess(userId);
+            if (!hasAccess) {
+                return res.status(403).json({
+                    success: false,
+                    message: 'You do not have access to this project'
+                });
+            }
+
+            // Add new item to structure
+            const newItem = {
+                name,
+                type,
+                ...(type === 'file' && { content }),
+                ...(type === 'folder' && { children: [] })
+            };
+
+            const updatedStructure = this.addItemToStructure(
+                project.testFolder.structure,
+                parentPath,
+                newItem
+            );
+
+            if (!updatedStructure) {
+                return res.status(404).json({
+                    success: false,
+                    message: 'Parent path not found in structure'
+                });
+            }
+
+            // Update counts
+            const counts = this.countFilesAndFolders(updatedStructure);
+            project.testFolder.structure = updatedStructure;
+            project.testFolder.totalFiles = counts.files;
+            project.testFolder.totalFolders = counts.folders;
+
+            await project.save();
+
+            return res.status(200).json({
+                success: true,
+                message: `${type} added successfully`,
+                data: {
+                    structure: project.testFolder.structure,
+                    stats: {
+                        totalFiles: project.testFolder.totalFiles,
+                        totalFolders: project.testFolder.totalFolders
+                    }
+                }
+            });
+
+        } catch (error) {
+            console.error('Error adding to structure:', error);
+            return res.status(500).json({
+                success: false,
+                message: 'Failed to add item to structure',
+                error: error.message
+            });
+        }
     }
 
-    protected Response post(String endpoint, Object body) {
-        return RestAssured.given()
-            .contentType("application/json")
-            .body(body)
-            .when()
-            .post(endpoint);
+    // Helper methods for generating file contents
+    getSampleTestContent() {
+        return `package com.automation.tests;
+
+import org.testng.annotations.Test;
+import org.testng.Assert;
+
+public class SampleTest {
+    
+    @Test
+    public void sampleTest() {
+        System.out.println("Sample Test Executed");
+        Assert.assertTrue(true, "Sample test passed");
+    }
+}`;
     }
 
-    protected Response put(String endpoint, Object body) {
-        return RestAssured.given()
-            .contentType("application/json")
-            .body(body)
-            .when()
-            .put(endpoint);
+    getBasePageContent() {
+        return `package com.automation.pages;
+
+import org.openqa.selenium.WebDriver;
+import org.openqa.selenium.support.PageFactory;
+
+public class BasePage {
+    protected WebDriver driver;
+    
+    public BasePage(WebDriver driver) {
+        this.driver = driver;
+        PageFactory.initElements(driver, this);
+    }
+}`;
     }
 
-    protected Response delete(String endpoint) {
-        return RestAssured.given().when().delete(endpoint);
+    getDriverManagerContent() {
+        return `package com.automation.utils;
+
+import org.openqa.selenium.WebDriver;
+import org.openqa.selenium.chrome.ChromeDriver;
+import io.github.bonigarcia.wdm.WebDriverManager;
+
+public class DriverManager {
+    private static ThreadLocal<WebDriver> driver = new ThreadLocal<>();
+    
+    public static WebDriver getDriver() {
+        if (driver.get() == null) {
+            WebDriverManager.chromedriver().setup();
+            driver.set(new ChromeDriver());
+        }
+        return driver.get();
     }
-}
-`,
+    
+    public static void quitDriver() {
+        if (driver.get() != null) {
+            driver.get().quit();
+            driver.remove();
+        }
+    }
+}`;
+    }
 
-    'ConfigReader.java': `package com.{company}.{project}.config;
+    getConfigReaderContent() {
+        return `package com.automation.utils;
 
-import java.io.IOException;
+import java.io.FileInputStream;
 import java.util.Properties;
 
 public class ConfigReader {
     private static Properties properties;
-
+    
     static {
-        properties = new Properties();
         try {
-            properties.load(ConfigReader.class.getResourceAsStream("/application.properties"));
-        } catch (IOException e) {
+            properties = new Properties();
+            FileInputStream fis = new FileInputStream("src/test/resources/config/config.properties");
+            properties.load(fis);
+        } catch (Exception e) {
             e.printStackTrace();
         }
     }
-
+    
     public static String getProperty(String key) {
         return properties.getProperty(key);
     }
-
-    public static String getBaseUrl() {
-        return getProperty("base.url");
+}`;
     }
 
-    public static int getTimeout() {
-        return Integer.parseInt(getProperty("timeout"));
+    getRestAssuredHelperContent() {
+        return `package com.automation.api;
+
+import io.restassured.RestAssured;
+import io.restassured.response.Response;
+import io.restassured.specification.RequestSpecification;
+
+public class RestAssuredHelper {
+    
+    public static Response sendGetRequest(String endpoint) {
+        RequestSpecification request = RestAssured.given();
+        return request.get(endpoint);
+    }
+    
+    public static Response sendPostRequest(String endpoint, String body) {
+        RequestSpecification request = RestAssured.given();
+        request.header("Content-Type", "application/json");
+        return request.body(body).post(endpoint);
+    }
+}`;
     }
 
-    public static int getRetryCount() {
-        return Integer.parseInt(getProperty("retry.count"));
+    getApiTestContent() {
+        return `package com.automation.api;
+
+import org.testng.annotations.Test;
+import io.restassured.response.Response;
+import static org.testng.Assert.*;
+
+public class ApiTest {
+    
+    @Test
+    public void testGetRequest() {
+        Response response = RestAssuredHelper.sendGetRequest("https://jsonplaceholder.typicode.com/posts/1");
+        assertEquals(response.getStatusCode(), 200);
     }
-}
-`,
+}`;
+    }
 
-    'application.properties': `base.url=http://localhost:8080
-timeout=30000
-retry.count=2
-log.level=INFO
-`,
+    getTestRunnerContent() {
+        return `package com.automation.runners;
 
-    '.gitignore': `# Maven
-target/
-*.class
-*.jar
-*.war
-*.ear
-*.zip
-*.tar.gz
+import io.cucumber.testng.AbstractTestNGCucumberTests;
+import io.cucumber.testng.CucumberOptions;
 
-# IDE
+@CucumberOptions(
+    features = "src/test/resources/features",
+    glue = "com.automation.stepdefinitions",
+    plugin = {"pretty", "html:target/cucumber-reports.html"}
+)
+public class TestRunner extends AbstractTestNGCucumberTests {
+}`;
+    }
+
+    getSampleFeatureContent() {
+        return `Feature: Sample Feature
+
+  Scenario: Sample Scenario
+    Given I have a sample test
+    When I execute the test
+    Then the test should pass`;
+    }
+
+    getConfigPropertiesContent() {
+        return `# Application Configuration
+base.url=https://example.com
+browser=chrome
+timeout=30
+implicit.wait=10
+
+# API Configuration
+api.base.url=https://api.example.com
+api.key=your-api-key`;
+    }
+
+    getTestNGXmlContent() {
+        return `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE suite SYSTEM "https://testng.org/testng-1.0.dtd">
+<suite name="Test Automation Suite" parallel="false">
+    <test name="Sample Tests">
+        <classes>
+            <class name="com.automation.tests.SampleTest"/>
+            <class name="com.automation.api.ApiTest"/>
+        </classes>
+    </test>
+</suite>`;
+    }
+
+    getPomXmlContent(projectName) {
+        return `<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 
+         http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>com.automation</groupId>
+    <artifactId>${projectName.toLowerCase().replace(/\s+/g, '-')}</artifactId>
+    <version>1.0-SNAPSHOT</version>
+
+    <properties>
+        <maven.compiler.source>11</maven.compiler.source>
+        <maven.compiler.target>11</maven.compiler.target>
+        <selenium.version>4.15.0</selenium.version>
+        <testng.version>7.8.0</testng.version>
+        <cucumber.version>7.14.0</cucumber.version>
+        <rest-assured.version>5.3.2</rest-assured.version>
+    </properties>
+
+    <dependencies>
+        <!-- Selenium -->
+        <dependency>
+            <groupId>org.seleniumhq.selenium</groupId>
+            <artifactId>selenium-java</artifactId>
+            <version>\${selenium.version}</version>
+        </dependency>
+
+        <!-- TestNG -->
+        <dependency>
+            <groupId>org.testng</groupId>
+            <artifactId>testng</artifactId>
+            <version>\${testng.version}</version>
+        </dependency>
+
+        <!-- Cucumber -->
+        <dependency>
+            <groupId>io.cucumber</groupId>
+            <artifactId>cucumber-java</artifactId>
+            <version>\${cucumber.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>io.cucumber</groupId>
+            <artifactId>cucumber-testng</artifactId>
+            <version>\${cucumber.version}</version>
+        </dependency>
+
+        <!-- Rest Assured -->
+        <dependency>
+            <groupId>io.rest-assured</groupId>
+            <artifactId>rest-assured</artifactId>
+            <version>\${rest-assured.version}</version>
+        </dependency>
+
+        <!-- WebDriverManager -->
+        <dependency>
+            <groupId>io.github.bonigarcia</groupId>
+            <artifactId>webdrivermanager</artifactId>
+            <version>5.6.2</version>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <version>3.0.0</version>
+                <configuration>
+                    <suiteXmlFiles>
+                        <suiteXmlFile>src/test/resources/testng.xml</suiteXmlFile>
+                    </suiteXmlFiles>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+</project>`;
+    }
+
+    getReadmeContent(projectName) {
+        return `# ${projectName} - Test Automation Framework
+
+This is an auto-generated test automation framework using:
+- Selenium WebDriver
+- TestNG
+- Cucumber
+- Rest Assured
+- Maven
+
+## Setup
+1. Ensure Java 11+ and Maven are installed
+2. Run: \`mvn clean install\`
+
+## Run Tests
+- All tests: \`mvn test\`
+- Specific suite: \`mvn test -DsuiteXmlFile=testng.xml\`
+
+## Structure
+- \`src/test/java/com/automation/tests\` - Test classes
+- \`src/test/java/com/automation/pages\` - Page objects
+- \`src/test/java/com/automation/utils\` - Utilities
+- \`src/test/java/com/automation/api\` - API tests
+- \`src/test/resources/features\` - Cucumber feature files`;
+    }
+
+    getGitIgnoreContent() {
+        return `target/
 .idea/
 *.iml
-*.iws
-*.ipr
-.vscode/
-*.swp
-*.swo
-
-# OS
-.DS_Store
-Thumbs.db
-
-# Test Reports
-reports/
-allure-results/
-
-# Dependencies
 .classpath
 .project
 .settings/
-bin/
-
-# Logs
 *.log
-logs/
-`,
-
-    'README.md': `# {projectName} API Tests
-
-Automated API Testing Suite for {projectName}
-
-## Tech Stack
-- REST-Assured
-- TestNG
-- Cucumber (BDD)
-- Maven
-
-## Project Structure
-
-\`\`\`
-src/
-├── test/
-│   ├── java/
-│   │   └── com/{company}/{project}/
-│   │       ├── base/              # Base test classes
-│   │       ├── tests/             # Test classes
-│   │       ├── features/          # Cucumber scenarios
-│   │       ├── steps/             # Step definitions
-│   │       ├── hooks/             # Before/After hooks
-│   │       ├── utilities/         # Helper classes
-│   │       ├── config/            # Configuration
-│   │       ├── models/            # POJOs
-│   │       ├── listeners/         # TestNG listeners
-│   │       └── data/              # Test data
-│   └── resources/
-│       ├── application.properties
-│       ├── features/
-│       └── testng.xml
-pom.xml
-\`\`\`
-
-## Running Tests
-
-\`\`\`bash
-# Run all tests
-mvn test
-
-# Run specific test suite
-mvn test -Dsuites=testng.xml
-
-# Generate Allure report
-mvn allure:report
-\`\`\`
-
-## Configuration
-
-Edit \`application.properties\` to configure:
-- Base URL
-- Timeout values
-- Retry counts
-- Log levels
-`,
-
-    'testng.xml': `<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE suite SYSTEM "http://testng.org/testng-current.dtd">
-<suite name="API Test Suite" parallel="methods" thread-count="5">
-    <test name="Regression Tests">
-        <classes>
-            <!-- Test classes will be added here -->
-        </classes>
-    </test>
-</suite>
-`
-};
-
-const generateFolderStructure = async (projectId, userId) => {
-    const folderTypes = [
-        { name: 'base', type: 'base', description: 'Base test classes' },
-        { name: 'tests', type: 'test', description: 'Test classes' },
-        { name: 'features', type: 'feature', description: 'Cucumber feature files' },
-        { name: 'steps', type: 'step', description: 'Step definitions' },
-        { name: 'hooks', type: 'hook', description: 'Before/After hooks' },
-        { name: 'utilities', type: 'utility', description: 'Helper classes and utilities' },
-        { name: 'config', type: 'config', description: 'Configuration files' },
-        { name: 'models', type: 'model', description: 'API response/request models' },
-        { name: 'listeners', type: 'listener', description: 'TestNG listeners' },
-        { name: 'data', type: 'resource', description: 'Test data files' }
-    ];
-
-    const createdFolders = [];
-
-    for (const folderConfig of folderTypes) {
-        const folder = new TestFolder({
-            project: projectId,
-            name: folderConfig.name,
-            path: folderConfig.name,
-            type: folderConfig.type,
-            level: 0,
-            description: folderConfig.description,
-            createdBy: userId,
-            isSystemFolder: true
-        });
-
-        await folder.save();
-        createdFolders.push(folder);
+test-output/`;
     }
 
-    return createdFolders;
-};
+    // Helper to count files and folders
+    countFilesAndFolders(node) {
+        let files = 0;
+        let folders = 0;
 
-const generateTemplateFiles = async (projectId, folders, userId, projectName, company = 'company') => {
-    const createdFiles = [];
-    const configFolder = folders.find(f => f.name === 'config');
-    const baseFolder = folders.find(f => f.name === 'base');
-
-    for (const [fileName, content] of Object.entries(TEMPLATE_FILES)) {
-        let targetFolder = configFolder;
-        let fileType = 'config';
-        let fileLanguage = 'properties';
-
-        if (fileName === 'Base.java') {
-            targetFolder = baseFolder;
-            fileType = 'test';
-            fileLanguage = 'java';
-        } else if (fileName === '.gitignore') {
-            fileLanguage = 'text';
-            fileType = 'config';
-        } else if (fileName === 'README.md') {
-            fileLanguage = 'markdown';
-            fileType = 'config';
-        } else if (fileName === 'testng.xml') {
-            fileLanguage = 'xml';
-            fileType = 'testng';
-        }
-
-        const processedContent = content
-            .replace(/{company}/g, company)
-            .replace(/{project}/g, projectName.toLowerCase().replace(/\s+/g, ''))
-            .replace(/{projectName}/g, projectName);
-
-        const file = new TestFile({
-            project: projectId,
-            folder: targetFolder._id,
-            name: fileName,
-            fileName: fileName,
-            path: `${targetFolder.path}/${fileName}`,
-            extension: fileName.split('.').pop(),
-            type: fileType,
-            language: fileLanguage,
-            content: processedContent,
-            originalContent: processedContent,
-            size: Buffer.byteLength(processedContent, 'utf-8'),
-            lines: processedContent.split('\n').length,
-            status: 'draft',
-            isGenerated: true,
-            generatedBy: 'system',
-            isEditable: false,
-            isSystemFile: true,
-            createdBy: userId
-        });
-
-        await file.save();
-        createdFiles.push(file);
-    }
-
-    return createdFiles;
-};
-
-const createProject = catchAsync(async (req, res) => {
-    const { name, description, visibility = 'private', category = 'web-api', priority = 'medium', teamId = null } = req.body;
-
-    console.log(`[PROJECT_CREATE] Name: ${name}, User: ${req.user._id}, Team: ${teamId}`);
-
-    if (!name || !name.trim()) {
-        return res.status(400).json({
-            success: false,
-            message: 'Project name is required',
-            code: 'PROJECT_NAME_REQUIRED'
-        });
-    }
-
-    const projectData = {
-        name: name.trim(),
-        description: description || '',
-        visibility,
-        category,
-        priority,
-        testConfig: {
-            framework: 'rest-assured',
-            language: 'java',
-            buildTool: 'maven',
-            baseUrl: '',
-            timeout: 30000,
-            retryCount: 2,
-            parallel: false,
-            threadCount: 1,
-            environmentVariables: [],
-            defaultHeaders: []
-        }
-    };
-
-    try {
-        const newProject = await ProjectService.createProject(projectData, req.user._id, teamId, {
-            ip: req.ip,
-            userAgent: req.get('user-agent')
-        });
-
-        console.log(`[PROJECT_CREATE_STRUCTURE] Generating folder structure for: ${newProject._id}`);
-
-        const folders = await generateFolderStructure(newProject._id, req.user._id);
-        console.log(`[PROJECT_FOLDERS_CREATED] Created ${folders.length} folders`);
-
-        const files = await generateTemplateFiles(newProject._id, folders, req.user._id, name);
-        console.log(`[PROJECT_FILES_CREATED] Created ${files.length} template files`);
-
-        const updatedProject = await Project.findById(newProject._id).populate('owner', 'firstName lastName email');
-
-        console.log(`[PROJECT_CREATE_SUCCESS] Project created: ${newProject._id}`);
-
-        return res.status(201).json({
-            success: true,
-            message: 'Project created successfully with auto-generated structure',
-            data: {
-                project: {
-                    id: updatedProject._id,
-                    name: updatedProject.name,
-                    description: updatedProject.description,
-                    status: updatedProject.status,
-                    visibility: updatedProject.visibility,
-                    category: updatedProject.category,
-                    priority: updatedProject.priority,
-                    owner: updatedProject.owner,
-                    structure: {
-                        foldersCreated: folders.length,
-                        filesCreated: files.length
-                    },
-                    createdAt: updatedProject.createdAt
-                }
-            }
-        });
-    } catch (error) {
-        console.error(`[PROJECT_CREATE_ERROR] ${error.message}`);
-        return res.status(400).json({
-            success: false,
-            message: error.message,
-            code: 'PROJECT_CREATE_FAILED'
-        });
-    }
-});
-
-const getProjectById = catchAsync(async (req, res) => {
-    const { projectId } = req.params;
-
-    console.log(`[PROJECT_GET] Project: ${projectId}`);
-
-    const project = await Project.findById(projectId)
-        .populate('owner', 'firstName lastName email avatar')
-        .populate('team', 'name')
-        .populate('databaseConnections', 'name type environment status isDefault')
-        .populate('repository', 'name fullName language isPrivate connection');
-
-    if (!project) {
-        return res.status(404).json({
-            success: false,
-            message: 'Project not found',
-            code: 'PROJECT_NOT_FOUND'
-        });
-    }
-
-    const hasAccess = await project.hasAccess(req.user._id);
-    if (!hasAccess) {
-        return res.status(403).json({
-            success: false,
-            message: 'Access denied to this project',
-            code: 'PROJECT_ACCESS_DENIED'
-        });
-    }
-
-    const rootFolders = await TestFolder.find({
-        project: projectId,
-        parentFolder: null,
-        isDeleted: false
-    }).select('_id name path type level metadata');
-
-    const buildHierarchy = async (folderId) => {
-        const subFolders = await TestFolder.find({
-            parentFolder: folderId,
-            project: projectId,
-            isDeleted: false
-        }).select('_id name path type level metadata');
-
-        const files = await TestFile.find({
-            folder: folderId,
-            project: projectId,
-            isDeleted: false
-        }).select('_id name fileName extension type language size lines status');
-
-        return {
-            subFolders: await Promise.all(
-                subFolders.map(async (sf) => ({
-                    id: sf._id,
-                    name: sf.name,
-                    path: sf.path,
-                    type: sf.type,
-                    level: sf.level,
-                    metadata: sf.metadata,
-                    children: await buildHierarchy(sf._id)
-                }))
-            ),
-            files: files.map(f => ({
-                id: f._id,
-                name: f.name,
-                fileName: f.fileName,
-                extension: f.extension,
-                type: f.type,
-                language: f.language,
-                size: f.size,
-                lines: f.lines,
-                status: f.status
-            }))
-        };
-    };
-
-    const hierarchy = await Promise.all(
-        rootFolders.map(async (rf) => ({
-            id: rf._id,
-            name: rf.name,
-            path: rf.path,
-            type: rf.type,
-            level: rf.level,
-            metadata: rf.metadata,
-            children: await buildHierarchy(rf._id)
-        }))
-    );
-
-    return res.json({
-        success: true,
-        data: {
-            project: {
-                id: project._id,
-                name: project.name,
-                description: project.description,
-                slug: project.slug,
-                status: project.status,
-                visibility: project.visibility,
-                category: project.category,
-                priority: project.priority,
-                owner: project.owner,
-                team: project.team,
-                repository: project.repository,
-                databaseConnections: project.databaseConnections,
-                stats: project.stats,
-                technology: project.technology,
-                testConfig: project.testConfig,
-                loadTesting: project.loadTesting,
-                cicd: project.cicd,
-                notifications: project.notifications,
-                schedule: project.schedule,
-                createdAt: project.createdAt,
-                updatedAt: project.updatedAt
-            },
-            folderStructure: hierarchy
-        }
-    });
-});
-
-const getProjectHierarchy = catchAsync(async (req, res) => {
-    const { projectId } = req.params;
-    const { format = 'tree' } = req.query;
-
-    console.log(`[PROJECT_HIERARCHY] Project: ${projectId}, Format: ${format}`);
-
-    const project = await Project.findById(projectId);
-
-    if (!project) {
-        return res.status(404).json({
-            success: false,
-            message: 'Project not found',
-            code: 'PROJECT_NOT_FOUND'
-        });
-    }
-
-    const hasAccess = await project.hasAccess(req.user._id);
-    if (!hasAccess) {
-        return res.status(403).json({
-            success: false,
-            message: 'Access denied to this project',
-            code: 'PROJECT_ACCESS_DENIED'
-        });
-    }
-
-    const rootFolders = await TestFolder.find({
-        project: projectId,
-        parentFolder: null,
-        isDeleted: false
-    }).select('_id name path type level metadata');
-
-    const buildHierarchy = async (folderId) => {
-        const subFolders = await TestFolder.find({
-            parentFolder: folderId,
-            project: projectId,
-            isDeleted: false
-        }).select('_id name path type level metadata');
-
-        const files = await TestFile.find({
-            folder: folderId,
-            project: projectId,
-            isDeleted: false
-        }).select('_id name fileName extension type size lines status');
-
-        return {
-            subFolders: await Promise.all(
-                subFolders.map(async (sf) => ({
-                    id: sf._id,
-                    name: sf.name,
-                    path: sf.path,
-                    type: sf.type,
-                    level: sf.level,
-                    metadata: sf.metadata,
-                    children: await buildHierarchy(sf._id)
-                }))
-            ),
-            files: files.map(f => ({
-                id: f._id,
-                name: f.name,
-                fileName: f.fileName,
-                extension: f.extension,
-                type: f.type,
-                size: f.size,
-                lines: f.lines,
-                status: f.status
-            }))
-        };
-    };
-
-    const hierarchy = await Promise.all(
-        rootFolders.map(async (rf) => ({
-            id: rf._id,
-            name: rf.name,
-            path: rf.path,
-            type: rf.type,
-            level: rf.level,
-            metadata: rf.metadata,
-            children: await buildHierarchy(rf._id)
-        }))
-    );
-
-    const calculateStats = (hierarchyArray) => {
-        let totalFolders = 0;
-        let totalFiles = 0;
-        let totalSize = 0;
-
-        const traverse = (node) => {
+        if (node.type === 'file') {
+            files = 1;
+        } else if (node.type === 'folder') {
+            folders = 1;
             if (node.children) {
-                if (node.children.subFolders) {
-                    node.children.subFolders.forEach(folder => {
-                        totalFolders++;
-                        traverse(folder);
-                    });
+                node.children.forEach(child => {
+                    const counts = this.countFilesAndFolders(child);
+                    files += counts.files;
+                    folders += counts.folders;
+                });
+            }
+        }
+
+        return { files, folders };
+    }
+
+    // Helper to add item to structure recursively
+    addItemToStructure(node, parentPath, newItem) {
+        if (!parentPath || parentPath === '' || parentPath === '/') {
+            // Add to root
+            if (node.children) {
+                node.children.push(newItem);
+            }
+            return node;
+        }
+
+        const pathParts = parentPath.split('/').filter(p => p);
+
+        const findAndAdd = (currentNode, parts) => {
+            if (parts.length === 0) {
+                if (currentNode.children) {
+                    currentNode.children.push(newItem);
                 }
-                if (node.children.files) {
-                    node.children.files.forEach(file => {
-                        totalFiles++;
-                        totalSize += file.size || 0;
-                    });
+                return true;
+            }
+
+            const nextPart = parts[0];
+            if (currentNode.children) {
+                for (let child of currentNode.children) {
+                    if (child.name === nextPart) {
+                        return findAndAdd(child, parts.slice(1));
+                    }
                 }
             }
+            return false;
         };
 
-        hierarchyArray.forEach(root => {
-            totalFolders++;
-            traverse(root);
-        });
+        const success = findAndAdd(node, pathParts);
+        return success ? node : null;
+    }
 
-        return { totalFolders, totalFiles, totalSize };
-    };
+    // Optional: Create physical folder structure
+    async createPhysicalStructure(node, basePath) {
+        const fullPath = path.join(basePath, node.name);
 
-    const stats = calculateStats(hierarchy);
-
-    console.log(`[PROJECT_HIERARCHY_SUCCESS] Retrieved hierarchy for project ${projectId}`);
-
-    return res.json({
-        success: true,
-        data: {
-            hierarchy,
-            statistics: {
-                totalFolders: stats.totalFolders,
-                totalFiles: stats.totalFiles,
-                totalSize: stats.totalSize
+        if (node.type === 'folder') {
+            await fs.mkdir(fullPath, { recursive: true });
+            if (node.children) {
+                for (const child of node.children) {
+                    await this.createPhysicalStructure(child, fullPath);
+                }
             }
+        } else if (node.type === 'file') {
+            await fs.writeFile(fullPath, node.content || '', 'utf8');
         }
-    });
-});
-
-const getProjectConfig = catchAsync(async (req, res) => {
-    const { projectId } = req.params;
-
-    console.log(`[PROJECT_CONFIG_GET] Project: ${projectId}`);
-
-    const project = await Project.findById(projectId)
-        .populate('repository', 'name fullName branch language')
-        .populate('databaseConnections', 'name type environment status isDefault');
-
-    if (!project) {
-        return res.status(404).json({
-            success: false,
-            message: 'Project not found',
-            code: 'PROJECT_NOT_FOUND'
-        });
     }
+}
 
-    const hasAccess = await project.hasAccess(req.user._id);
-    if (!hasAccess) {
-        return res.status(403).json({
-            success: false,
-            message: 'Access denied to this project',
-            code: 'PROJECT_ACCESS_DENIED'
-        });
-    }
-
-    const config = await ProjectConfigService.getProjectConfig(projectId, req.user._id);
-
-    return res.json({
-        success: true,
-        data: {
-            config,
-            technology: project.technology,
-            repository: project.repository,
-            databaseConnections: project.databaseConnections
-        }
-    });
-});
-
-const getUserProjects = catchAsync(async (req, res) => {
-    const { userId } = req.params;
-    const { status, teamId, skip = 0, limit = 20 } = req.query;
-
-    console.log(`[PROJECT_GET_USER] User: ${userId}, Status: ${status}`);
-
-    const { projects, total } = await ProjectService.getUserProjects(userId, {
-        status,
-        teamId,
-        skip: parseInt(skip),
-        limit: parseInt(limit)
-    });
-
-    return res.json({
-        success: true,
-        data: {
-            projects: projects.map(p => ({
-                id: p._id,
-                name: p.name,
-                description: p.description,
-                slug: p.slug,
-                status: p.status,
-                visibility: p.visibility,
-                category: p.category,
-                priority: p.priority,
-                owner: p.owner,
-                team: p.team,
-                stats: p.stats,
-                createdAt: p.createdAt,
-                updatedAt: p.updatedAt
-            })),
-            total,
-            skip: parseInt(skip),
-            limit: parseInt(limit)
-        }
-    });
-});
-
-const getTeamProjects = catchAsync(async (req, res) => {
-    const { teamId } = req.params;
-    const { status, skip = 0, limit = 20 } = req.query;
-
-    console.log(`[PROJECT_GET_TEAM] Team: ${teamId}, Status: ${status}`);
-
-    const { projects, total } = await ProjectService.getTeamProjects(teamId, {
-        status,
-        skip: parseInt(skip),
-        limit: parseInt(limit)
-    });
-
-    return res.json({
-        success: true,
-        data: {
-            projects: projects.map(p => ({
-                id: p._id,
-                name: p.name,
-                description: p.description,
-                slug: p.slug,
-                status: p.status,
-                visibility: p.visibility,
-                category: p.category,
-                priority: p.priority,
-                owner: p.owner,
-                team: p.team,
-                stats: p.stats,
-                createdAt: p.createdAt,
-                updatedAt: p.updatedAt
-            })),
-            total,
-            skip: parseInt(skip),
-            limit: parseInt(limit)
-        }
-    });
-});
-
-module.exports = {
-    createProject,
-    getProjectById,
-    getProjectHierarchy,
-    getProjectConfig,
-    getUserProjects,
-    getTeamProjects
-};
+module.exports = new ProjectController();
